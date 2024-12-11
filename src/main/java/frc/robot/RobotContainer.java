@@ -23,6 +23,7 @@ import frc.robot.subsystems.drive.DriveIO;
 import frc.robot.subsystems.drive.DriveIOCTRE;
 import frc.robot.subsystems.drive.module.ModuleIO;
 import frc.robot.subsystems.drive.module.ModuleIOCTRE;
+import frc.robot.subsystems.drive.requests.GamePieceTrackDrive;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOLimelight;
@@ -36,7 +37,7 @@ public class RobotContainer {
   private final LoggedDashboardChooser<Command> autoChooser;
 
   public final Drive drivetrain;
-  private final SwerveRequest.FieldCentric drive;
+  private final GamePieceTrackDrive drive;
   //   private final SwerveSetpointGen drive;
   // private final ProfiledFieldCentricFacingAngle drive;
 
@@ -124,12 +125,12 @@ public class RobotContainer {
     }
 
     // Default CTRE Swerve Drive Code
-    drive =
-        new SwerveRequest.FieldCentric()
-            .withDeadband(MaxSpeed.times(0.1))
-            .withRotationalDeadband(Constants.MaxAngularRate.times(0.1)) // Add a 10% deadband
-            .withDriveRequestType(
-                DriveRequestType.OpenLoopVoltage); // Use open-loop control for drive motors
+    // drive =
+    //     new SwerveRequest.FieldCentric()
+    //         .withDeadband(MaxSpeed.times(0.1))
+    //         .withRotationalDeadband(Constants.MaxAngularRate.times(0.1)) // Add a 10% deadband
+    //         .withDriveRequestType(
+    //             DriveRequestType.OpenLoopVoltage); // Use open-loop control for drive motors
 
     // Custom Swerve Request that use PathPlanner Setpoint Generator. You will need to tune
     // PP_CONFIG for this
@@ -150,6 +151,13 @@ public class RobotContainer {
     //           .withRotationalDeadband(
     //               Constants.MaxAngularRate.times(0.1).baseUnitMagnitude()) // Add a 10% deadband
     //           .withDriveRequestType(DriveRequestType.OpenLoopVoltage);
+
+    drive = new GamePieceTrackDrive(
+        drivetrain.getChassisSpeeds(),
+        drivetrain.getModuleStates()
+    ).withDeadband(MaxSpeed.times(0.1))
+    .withRotationalDeadband(Constants.MaxAngularRate.times(0.1))
+    .withDriveRequestType(DriveRequestType.OpenLoopVoltage);
 
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
@@ -187,7 +195,8 @@ public class RobotContainer {
                     .withRotationalRate(
                         Constants.MaxAngularRate.times(
                             -joystick
-                                .getRightX())))); // Drive counterclockwise with negative X (left)
+                                .getRightX()))
+                    .withPose(drivetrain.getPose()))); // Drive counterclockwise with negative X (left)
     // .withRotation(drivetrain.getRotation())));
 
     joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
