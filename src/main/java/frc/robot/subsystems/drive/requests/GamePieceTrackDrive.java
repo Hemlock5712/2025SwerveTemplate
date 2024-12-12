@@ -2,17 +2,12 @@ package frc.robot.subsystems.drive.requests;
 
 import static edu.wpi.first.units.Units.*;
 
-import org.littletonrobotics.junction.AutoLog;
-import org.littletonrobotics.junction.AutoLogOutput;
-import org.littletonrobotics.junction.Logger;
-
 import com.ctre.phoenix6.StatusCode;
 import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveControlParameters;
 import com.ctre.phoenix6.swerve.SwerveModule;
 import com.ctre.phoenix6.swerve.SwerveRequest.NativeSwerveRequest;
 import com.pathplanner.lib.util.DriveFeedforwards;
 import com.pathplanner.lib.util.swerve.SwerveSetpoint;
-
 import edu.wpi.first.math.Vector;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -26,6 +21,7 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import frc.robot.Constants;
 import frc.robot.utils.FieldConstants;
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Drives the swerve drivetrain in a field-centric manner, maintaining a specified heading angle to
@@ -132,22 +128,34 @@ public class GamePieceTrackDrive implements NativeSwerveRequest {
       toApplyOmega = 0;
     }
 
-    Translation2d assistVelocity = calculateAssistVelocity(CurrentPose.getTranslation(), noteLocation, new Translation2d(toApplyX, toApplyY));
+    Translation2d assistVelocity =
+        calculateAssistVelocity(
+            CurrentPose.getTranslation(), noteLocation, new Translation2d(toApplyX, toApplyY));
 
     toApplyX += assistVelocity.getX();
     toApplyY += assistVelocity.getY();
 
     // Normalize the velocity
     Translation2d normalizedVelocity = normalizeVector(new Translation2d(toApplyX, toApplyY));
-    Logger.recordOutput("GamePieceTrackDrive/normalizedVelocity", normalizedVelocity);
+    Logger.recordOutput(
+        "GamePieceTrackDrive/normalizedVelocity", adjustVectorToRobotPosition(normalizedVelocity));
     double originalMagnitude = Math.hypot(toApplyX, toApplyY);
 
     Translation2d scaledVelocity = scaleVectorToMagnitude(normalizedVelocity, originalMagnitude);
     toApplyX = scaledVelocity.getX();
     toApplyY = scaledVelocity.getY();
+    double magnitude = Math.hypot(toApplyX, toApplyY);
+    if (magnitude <= 1e-6) {
+      toApplyX = 0.0;
+      toApplyY = 0.0;
+    }
 
     ChassisSpeeds speeds = new ChassisSpeeds(toApplyX, toApplyY, toApplyOmega);
     speeds.toRobotRelativeSpeeds(toApplyRotation);
+
+    Logger.recordOutput("GamePieceTrackDrive/chassisSpeeds", speeds);
+    Logger.recordOutput(
+        "GamePieceTrackDrive/gamePieceLocation", new Pose2d(noteLocation, new Rotation2d()));
 
     previousSetpoint =
         Constants.setpointGenerator.generateSetpoint(
@@ -167,15 +175,23 @@ public class GamePieceTrackDrive implements NativeSwerveRequest {
         .applyNative(id);
   }
 
+  private Translation2d adjustVectorToRobotPosition(Translation2d vector) {
+    return CurrentPose.getTranslation().minus(vector);
+  }
+
   private Translation2d vectorToTranslation(Vector<N2> vector) {
     return new Translation2d(vector.get(0), vector.get(1));
   }
 
-  private Translation2d calculatePerpedicularVector(Translation2d robotToNote, Translation2d velocity) {
+  private Translation2d calculatePerpedicularVector(
+      Translation2d robotToNote, Translation2d velocity) {
     Vector<N2> robotToNoteVector = robotToNote.toVector();
     Vector<N2> velocityVector = velocity.toVector();
-
-    double projectionFactor = robotToNoteVector.dot(velocityVector) / velocityVector.dot(velocityVector);
+    double velocityProj = velocityVector.dot(velocityVector);
+    if (velocityProj == 0) {
+      return new Translation2d();
+    }
+    double projectionFactor = robotToNoteVector.dot(velocityVector) / velocityProj;
     Vector<N2> projectionVector = velocityVector.times(projectionFactor);
 
     Vector<N2> perpendicularVector = robotToNoteVector.minus(projectionVector);
@@ -198,18 +214,24 @@ public class GamePieceTrackDrive implements NativeSwerveRequest {
     return normalizedVector.times(magnitude);
   }
 
-  private Translation2d calculateAssistVelocity(Translation2d robotPosition, Translation2d notePosition, Translation2d velocity) {
+  private Translation2d calculateAssistVelocity(
+      Translation2d robotPosition, Translation2d notePosition, Translation2d velocity) {
     Translation2d robotToNoteVector = robotPosition.minus(notePosition);
-    Logger.recordOutput("GamePieceTrackDrive/robotToNoteVector", robotToNoteVector);
+    Logger.recordOutput(
+        "GamePieceTrackDrive/robotToNoteVector", adjustVectorToRobotPosition(robotToNoteVector));
 
     Translation2d perpendicularVector = calculatePerpedicularVector(robotToNoteVector, velocity);
-    Logger.recordOutput("GamePieceTrackDrive/perpendicularVector", perpendicularVector);
+    Logger.recordOutput(
+        "GamePieceTrackDrive/perpendicularVector",
+        adjustVectorToRobotPosition(perpendicularVector));
 
     Translation2d normalizedVector = normalizeVector(perpendicularVector);
-    Logger.recordOutput("GamePieceTrackDrive/normalizedVector", normalizedVector);
+    Logger.recordOutput(
+        "GamePieceTrackDrive/normalizedVector", adjustVectorToRobotPosition(normalizedVector));
 
     Translation2d assistVelocity = scaleVectorToMagnitude(normalizedVector, 1);
-    Logger.recordOutput("GamePieceTrackDrive/assistVelocity", assistVelocity);
+    Logger.recordOutput(
+        "GamePieceTrackDrive/assistVelocity", adjustVectorToRobotPosition(assistVelocity));
 
     return assistVelocity;
   }
@@ -385,7 +407,8 @@ public class GamePieceTrackDrive implements NativeSwerveRequest {
    * @param newDriveRequestType Parameter to modify
    * @return this object
    */
-  public GamePieceTrackDrive withDriveRequestType(SwerveModule.DriveRequestType newDriveRequestType) {
+  public GamePieceTrackDrive withDriveRequestType(
+      SwerveModule.DriveRequestType newDriveRequestType) {
     this.DriveRequestType = newDriveRequestType;
     return this;
   }
@@ -398,7 +421,8 @@ public class GamePieceTrackDrive implements NativeSwerveRequest {
    * @param newSteerRequestType Parameter to modify
    * @return this object
    */
-  public GamePieceTrackDrive withSteerRequestType(SwerveModule.SteerRequestType newSteerRequestType) {
+  public GamePieceTrackDrive withSteerRequestType(
+      SwerveModule.SteerRequestType newSteerRequestType) {
     this.SteerRequestType = newSteerRequestType;
     return this;
   }

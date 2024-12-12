@@ -152,12 +152,11 @@ public class RobotContainer {
     //               Constants.MaxAngularRate.times(0.1).baseUnitMagnitude()) // Add a 10% deadband
     //           .withDriveRequestType(DriveRequestType.OpenLoopVoltage);
 
-    drive = new GamePieceTrackDrive(
-        drivetrain.getChassisSpeeds(),
-        drivetrain.getModuleStates()
-    ).withDeadband(MaxSpeed.times(0.1))
-    .withRotationalDeadband(Constants.MaxAngularRate.times(0.1))
-    .withDriveRequestType(DriveRequestType.OpenLoopVoltage);
+    drive =
+        new GamePieceTrackDrive(drivetrain.getChassisSpeeds(), drivetrain.getModuleStates())
+            .withDeadband(MaxSpeed.times(0.1))
+            .withRotationalDeadband(Constants.MaxAngularRate.times(0.1))
+            .withDriveRequestType(DriveRequestType.OpenLoopVoltage);
 
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
@@ -192,11 +191,9 @@ public class RobotContainer {
                             -joystick.getLeftY())) // Drive forward with negative Y (forward)
                     .withVelocityY(
                         MaxSpeed.times(-joystick.getLeftX())) // Drive left with negative X (left)
-                    .withRotationalRate(
-                        Constants.MaxAngularRate.times(
-                            -joystick
-                                .getRightX()))
-                    .withPose(drivetrain.getPose()))); // Drive counterclockwise with negative X (left)
+                    .withRotationalRate(Constants.MaxAngularRate.times(-joystick.getRightX()))
+                    .withPose(
+                        drivetrain.getPose()))); // Drive counterclockwise with negative X (left)
     // .withRotation(drivetrain.getRotation())));
 
     joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
