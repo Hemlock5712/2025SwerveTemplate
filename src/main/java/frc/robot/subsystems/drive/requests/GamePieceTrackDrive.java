@@ -229,7 +229,12 @@ public class GamePieceTrackDrive implements NativeSwerveRequest {
     Logger.recordOutput(
         "GamePieceTrackDrive/normalizedVector", adjustVectorToRobotPosition(normalizedVector));
 
-    Translation2d assistVelocity = scaleVectorToMagnitude(normalizedVector, 1);
+    // Scale the assist velocity based on distance to target
+    double distance = robotToNoteVector.getNorm();
+    // Apply a scaling factor that decreases as we get closer to the target
+    double scaleFactor = Math.min(0.3, distance * 0.1); // Max 0.3, proportional to distance
+
+    Translation2d assistVelocity = scaleVectorToMagnitude(normalizedVector, scaleFactor);
     Logger.recordOutput(
         "GamePieceTrackDrive/assistVelocity", adjustVectorToRobotPosition(assistVelocity));
 
