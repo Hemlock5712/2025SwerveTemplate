@@ -216,7 +216,7 @@ public class GamePieceTrackDrive implements NativeSwerveRequest {
 
   private Translation2d calculateAssistVelocity(
       Translation2d robotPosition, Translation2d notePosition, Translation2d velocity) {
-    Translation2d robotToNoteVector = robotPosition.minus(notePosition);
+    Translation2d robotToNoteVector = notePosition.minus(robotPosition);
     Logger.recordOutput(
         "GamePieceTrackDrive/robotToNoteVector", adjustVectorToRobotPosition(robotToNoteVector));
 
@@ -232,11 +232,10 @@ public class GamePieceTrackDrive implements NativeSwerveRequest {
     // Scale the assist velocity based on distance to target
     double distance = robotToNoteVector.getNorm();
     // Apply a scaling factor that decreases as we get closer to the target
-    double scaleFactor = Math.min(0.3, distance * 0.1); // Max 0.3, proportional to distance
+    double scaleFactor = Math.min(1, distance * 0.5); // Max 0.3, proportional to distance
 
     Translation2d assistVelocity = scaleVectorToMagnitude(normalizedVector, scaleFactor);
-    Logger.recordOutput(
-        "GamePieceTrackDrive/assistVelocity", adjustVectorToRobotPosition(assistVelocity));
+    Logger.recordOutput("GamePieceTrackDrive/assistVelocity", assistVelocity);
 
     return assistVelocity;
   }
