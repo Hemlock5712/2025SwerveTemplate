@@ -25,7 +25,6 @@ import frc.robot.subsystems.drive.module.ModuleIO;
 import frc.robot.subsystems.drive.module.ModuleIOCTRE;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionIO;
-import frc.robot.subsystems.vision.VisionIOLimelight;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSIM;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
@@ -58,12 +57,12 @@ public class RobotContainer {
                 new ModuleIOCTRE(currentDriveTrain.getModule(2)),
                 new ModuleIOCTRE(currentDriveTrain.getModule(3)));
 
-        new Vision(
-            drivetrain::addVisionData,
-            new VisionIOLimelight("limelight-fl", drivetrain::getVisionParameters),
-            new VisionIOLimelight("limelight-fr", drivetrain::getVisionParameters),
-            new VisionIOLimelight("limelight-bl", drivetrain::getVisionParameters),
-            new VisionIOLimelight("limelight-br", drivetrain::getVisionParameters));
+        //        new Vision(
+        //            drivetrain::addVisionData,
+        //            new VisionIOLimelight("limelight-fl", drivetrain::getVisionParameters),
+        //            new VisionIOLimelight("limelight-fr", drivetrain::getVisionParameters),
+        //            new VisionIOLimelight("limelight-bl", drivetrain::getVisionParameters),
+        //            new VisionIOLimelight("limelight-br", drivetrain::getVisionParameters));
         break;
 
       case SIM:
@@ -181,13 +180,13 @@ public class RobotContainer {
                 drive
                     .withVelocityX(
                         MaxSpeed.times(
-                            -joystick.getLeftY())) // Drive forward with negative Y (forward)
+                            joystick.getRightY())) // Drive forward with negative Y (forward)
                     .withVelocityY(
-                        MaxSpeed.times(-joystick.getLeftX())) // Drive left with negative X (left)
+                        MaxSpeed.times(joystick.getRightX())) // Drive left with negative X (left)
                     .withRotationalRate(
                         Constants.MaxAngularRate.times(
                             -joystick
-                                .getRightX())))); // Drive counterclockwise with negative X (left)
+                                .getLeftX())))); // Drive counterclockwise with negative X (left)
     // .withRotation(drivetrain.getRotation())));
 
     joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
@@ -207,7 +206,7 @@ public class RobotContainer {
     joystick.start().and(joystick.x()).whileTrue(drivetrain.sysIdQuasistatic(Direction.kReverse));
 
     // reset the field-centric heading on left bumper press
-    // joystick.leftBumper().onTrue(drivetrain.runOnce(() -> drivetrain.seedFieldCentric()));
+    joystick.leftBumper().onTrue(drivetrain.runOnce(drivetrain::seedFieldCentric));
   }
 
   public Command getAutonomousCommand() {
