@@ -2,6 +2,8 @@
 
 package frc.robot;
 
+import static edu.wpi.first.units.Units.DegreesPerSecond;
+
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonFormat.Shape;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -503,7 +505,7 @@ public class LimelightHelpers {
           avgTagDist,
           avgTagArea,
           ambiguity,
-          visionParams.yawVelocityRadPerSec(),
+          visionParams.gyroRate().in(DegreesPerSecond),
           visionParams.robotPose(),
           isMegaTag2);
     }

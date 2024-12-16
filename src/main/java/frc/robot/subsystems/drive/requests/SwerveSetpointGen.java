@@ -14,9 +14,8 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.units.measure.*;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import frc.robot.Constants;
+import java.util.function.Supplier;
 
 /**
  * Drives the swerve drivetrain in a field-centric manner, maintaining a specified heading angle to
@@ -76,16 +75,27 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
   /** The perspective to use when determining which direction is forward. */
   public ForwardPerspectiveValue ForwardPerspective = ForwardPerspectiveValue.OperatorPerspective;
 
+  /** The direction the operator is facing */
+  public Rotation2d ForwardDirection = Rotation2d.kZero;
+
   private final ApplyRobotSpeeds m_swerveSetpoint = new ApplyRobotSpeeds();
 
   private SwerveSetpoint previousSetpoint;
+
+  /* The current rotation of the robot */
+  public Supplier<Rotation2d> currentRotation;
 
   /**
    * Creates a new profiled SwerveSetpoint request with the given constraints.
    *
    * @param constraints Constraints for the trapezoid profile
    */
-  public SwerveSetpointGen(ChassisSpeeds currentSpeeds, SwerveModuleState[] currentStates) {
+  public SwerveSetpointGen(
+      ChassisSpeeds currentSpeeds,
+      SwerveModuleState[] currentStates,
+      Supplier<Rotation2d> currentRotation) {
+    this.currentRotation = currentRotation;
+    currentSpeeds.toFieldRelativeSpeeds(currentRotation.get());
     previousSetpoint =
         new SwerveSetpoint(
             currentSpeeds, currentStates, DriveFeedforwards.zeros(Constants.PP_CONFIG.numModules));
@@ -99,16 +109,12 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
     double toApplyX = VelocityX;
     double toApplyY = VelocityY;
     double toApplyOmega = RotationalRate;
-    Rotation2d toApplyRotation = CurrentRotation;
+    Rotation2d toApplyRotation = currentRotation.get();
 
     if (ForwardPerspective == ForwardPerspectiveValue.OperatorPerspective) {
       /* If we're operator perspective, modify the X/Y translation by the angle */
       Translation2d tmp = new Translation2d(toApplyX, toApplyY);
-      tmp =
-          tmp.rotateBy(
-              DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red
-                  ? Rotation2d.kPi
-                  : Rotation2d.kZero);
+      tmp = tmp.rotateBy(ForwardDirection);
       toApplyX = tmp.getX();
       toApplyY = tmp.getY();
     }
@@ -126,7 +132,7 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
 
     previousSetpoint =
         Constants.setpointGenerator.generateSetpoint(
-            previousSetpoint, // The previous setpoint
+            previousSetpoint, // Last setpoint
             speeds, // The desired target speeds
             0.02 // The loop time of the robot code, in seconds
             );
@@ -279,19 +285,6 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
   }
 
   /**
-   * Modifies the current Rotation.
-   *
-   * <p>The current rotation in Rotation2d
-   *
-   * @param newRotation Parameter to modify
-   * @return this object
-   */
-  public SwerveSetpointGen withRotation(Rotation2d newRotation) {
-    this.CurrentRotation = newRotation;
-    return this;
-  }
-
-  /**
    * Modifies the CenterOfRotation parameter and returns itself.
    *
    * <p>The center of rotation the robot should rotate around. This is (0,0) by default, which will
@@ -355,6 +348,19 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
    */
   public SwerveSetpointGen withForwardPerspective(ForwardPerspectiveValue newForwardPerspective) {
     this.ForwardPerspective = newForwardPerspective;
+    return this;
+  }
+
+  /**
+   * Modifies the OperatorForwardDirection parameter and returns itself.
+   *
+   * <p>The perspective to use when determining which direction is forward.
+   *
+   * @param newForwardPerspective Parameter to modify
+   * @return this object
+   */
+  public SwerveSetpointGen withOperatorForwardDirection(Rotation2d newForwardDirection) {
+    this.ForwardDirection = newForwardDirection;
     return this;
   }
 }

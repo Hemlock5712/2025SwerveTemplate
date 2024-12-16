@@ -42,7 +42,7 @@ public class DriveIOCTRE extends SwerveDrivetrain implements DriveIO {
 
   @Override
   public void updateInputs(DriveIOInputs inputs) {
-    SwerveDriveState state = getState();
+    SwerveDriveState state = super.getState();
     inputs.moduleStates = state.ModuleStates;
     inputs.moduleTargets = state.ModuleTargets;
     inputs.pose = state.Pose;
@@ -51,8 +51,8 @@ public class DriveIOCTRE extends SwerveDrivetrain implements DriveIO {
     inputs.successfulDaqs = state.SuccessfulDaqs;
     inputs.failedDaqs = state.FailedDaqs;
 
-    inputs.rotation3d = super.getRotation3d();
-    inputs.gyroRate = super.getPigeon2().getAngularVelocityZWorld().getValueAsDouble();
+    inputs.gyroRate = super.getPigeon2().getAngularVelocityZWorld().getValue();
+    inputs.operatorForwardDirection = super.getOperatorForwardDirection();
     inputs.odometryIsValid = super.isOdometryValid();
   }
 
@@ -71,5 +71,10 @@ public class DriveIOCTRE extends SwerveDrivetrain implements DriveIO {
               updateSimState(deltaTime, RobotController.getBatteryVoltage());
             });
     m_simNotifier.startPeriodic(kSimLoopPeriod);
+  }
+
+  @Override
+  public void samplePoseAt(DriveIOInputs inputs, double timestampSeconds) {
+    inputs.samplePose = super.samplePoseAt(timestampSeconds).orElse(getState().Pose);
   }
 }

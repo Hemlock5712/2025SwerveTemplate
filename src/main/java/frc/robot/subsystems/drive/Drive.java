@@ -12,6 +12,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.units.measure.Angle;
+import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -240,6 +241,14 @@ public class Drive extends SubsystemBase {
     return getPose().getRotation();
   }
 
+  public AngularVelocity getGyroRate() {
+    return inputs.gyroRate;
+  }
+
+  public Rotation2d getOperatorForwardDirection() {
+    return inputs.operatorForwardDirection;
+  }
+
   public Angle[] getDrivePositions() {
     Angle[] values = new Angle[4];
     for (int i = 0; i < 4; i++) {
@@ -251,9 +260,7 @@ public class Drive extends SubsystemBase {
   /** Returns the module states (turn angles and drive velocities) for all of the modules. */
   @AutoLogOutput(key = "SwerveStates/Measured")
   public SwerveModuleState[] getModuleStates() {
-    if (inputs.moduleStates == null
-        || inputs.moduleStates.length != Constants.PP_CONFIG.numModules
-        || inputs.moduleStates[0] == null) {
+    if (inputs.successfulDaqs == 0) {
       return new SwerveModuleState[] {
         new SwerveModuleState(),
         new SwerveModuleState(),
@@ -267,9 +274,7 @@ public class Drive extends SubsystemBase {
   /** Returns the module target states (turn angles and drive velocities) for all of the modules. */
   @AutoLogOutput(key = "SwerveStates/Setpoints")
   public SwerveModuleState[] getModuleTarget() {
-    if (inputs.moduleTargets == null
-        || inputs.moduleTargets.length != Constants.PP_CONFIG.numModules
-        || inputs.moduleTargets[0] == null) {
+    if (inputs.successfulDaqs == 0) {
       return new SwerveModuleState[] {
         new SwerveModuleState(),
         new SwerveModuleState(),
@@ -284,6 +289,18 @@ public class Drive extends SubsystemBase {
   @AutoLogOutput(key = "SwerveChassisSpeeds/Measured")
   public ChassisSpeeds getChassisSpeeds() {
     return inputs.speeds;
+  }
+
+  /**
+   * Return the pose at a given timestamp. If the buffer is empty return current pose.
+   *
+   * @param timestampSeconds The pose's timestamp. This must use WPILib timestamp.
+   * @return The pose at the given timestamp (or current pose if the buffer is empty).
+   */
+  public Pose2d samplePoseAt(double timestampSeconds) {
+    io.samplePoseAt(inputs, Utils.fpgaToCurrentTime(timestampSeconds));
+    Logger.processInputs("Drive", inputs);
+    return inputs.samplePose;
   }
 
   /**
@@ -304,8 +321,8 @@ public class Drive extends SubsystemBase {
   }
 
   public VisionParameters getVisionParameters() {
-    return new VisionParameters(getPose(), getChassisSpeeds().omegaRadiansPerSecond);
+    return new VisionParameters(getPose(), getGyroRate());
   }
 
-  public record VisionParameters(Pose2d robotPose, double yawVelocityRadPerSec) {}
+  public record VisionParameters(Pose2d robotPose, AngularVelocity gyroRate) {}
 }

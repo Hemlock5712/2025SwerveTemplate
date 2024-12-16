@@ -29,11 +29,10 @@ public class TunerConstants {
           .withKP(100)
           .withKI(0)
           .withKD(0.5)
-          .withKS(0.2)
+          .withKS(0.1)
           .withKV(1.59)
           .withKA(0)
           .withStaticFeedforwardSign(StaticFeedforwardSignValue.UseClosedLoopSign);
-
   // When using closed-loop control, the drive motor uses the control
   // output type specified by SwerveModuleConstants.DriveMotorClosedLoopOutput
   private static final Slot0Configs driveGains =
@@ -92,11 +91,11 @@ public class TunerConstants {
   private static final int kPigeonId = 13;
 
   // These are only used for simulation
-  private static final double kSteerInertia = 0.01;
-  private static final double kDriveInertia = 0.01;
+  private static final MomentOfInertia kSteerInertia = KilogramSquareMeters.of(0.01);
+  private static final MomentOfInertia kDriveInertia = KilogramSquareMeters.of(0.01);
   // Simulated voltage necessary to overcome friction
-  private static final Voltage kSteerFrictionVoltage = Volts.of(0.25);
-  private static final Voltage kDriveFrictionVoltage = Volts.of(0.25);
+  private static final Voltage kSteerFrictionVoltage = Volts.of(0.2);
+  private static final Voltage kDriveFrictionVoltage = Volts.of(0.2);
 
   public static final SwerveDrivetrainConstants DrivetrainConstants =
       new SwerveDrivetrainConstants()
@@ -213,16 +212,6 @@ public class TunerConstants {
           kInvertRightSide,
           kBackRightSteerMotorInverted,
           kBackRightCANcoderInverted);
-
-  // /**
-  //  * Creates a CommandSwerveDrivetrain instance.
-  //  * This should only be called once in your robot program,.
-  //  */
-  // public static CommandSwerveDrivetrain createDrivetrain() {
-  //     return new CommandSwerveDrivetrain(
-  //         DrivetrainConstants, FrontLeft, FrontRight, BackLeft, BackRight
-  //     );
-  // }
 
   /** Creates a DriveIOCTRE instance. This should only be called once in your robot program,. */
   public static DriveIOCTRE createDrivetrain() {
