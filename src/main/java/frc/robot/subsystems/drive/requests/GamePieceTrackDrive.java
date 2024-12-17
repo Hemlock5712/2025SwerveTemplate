@@ -8,14 +8,20 @@ import com.ctre.phoenix6.swerve.SwerveModule;
 import com.ctre.phoenix6.swerve.SwerveRequest.NativeSwerveRequest;
 import com.pathplanner.lib.util.DriveFeedforwards;
 import com.pathplanner.lib.util.swerve.SwerveSetpoint;
+import edu.wpi.first.math.Vector;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
+import edu.wpi.first.math.numbers.N2;
 import edu.wpi.first.units.measure.*;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import frc.robot.Constants;
-import java.util.function.Supplier;
+import frc.robot.utils.FieldConstants;
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Drives the swerve drivetrain in a field-centric manner, maintaining a specified heading angle to
@@ -32,7 +38,7 @@ import java.util.function.Supplier;
  * <p>This control request is especially useful for autonomous control, where the robot should be
  * facing a changing direction throughout the motion.
  */
-public class SwerveSetpointGen implements NativeSwerveRequest {
+public class GamePieceTrackDrive implements NativeSwerveRequest {
   /**
    * The velocity in the X direction, in m/s. X is defined as forward according to WPILib
    * convention, so this determines how fast to travel forward.
@@ -54,7 +60,7 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
   /** The rotational deadband of the request, in radians per second. */
   public double RotationalDeadband = 0;
   /* The current rotation of the robot */
-  public Rotation2d CurrentRotation = Rotation2d.kZero;
+  public Pose2d CurrentPose = Pose2d.kZero;
   /**
    * The center of rotation the robot should rotate around. This is (0,0) by default, which will
    * rotate around the center of the robot.
@@ -75,27 +81,18 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
   /** The perspective to use when determining which direction is forward. */
   public ForwardPerspectiveValue ForwardPerspective = ForwardPerspectiveValue.OperatorPerspective;
 
-  /** The direction the operator is facing */
-  public Rotation2d ForwardDirection = Rotation2d.kZero;
-
   private final ApplyRobotSpeeds m_swerveSetpoint = new ApplyRobotSpeeds();
 
   private SwerveSetpoint previousSetpoint;
 
-  /* The current rotation of the robot */
-  public Supplier<Rotation2d> currentRotation;
+  private final Translation2d noteLocation = FieldConstants.StagingLocations.spikeTranslations[2];
 
   /**
    * Creates a new profiled SwerveSetpoint request with the given constraints.
    *
    * @param constraints Constraints for the trapezoid profile
    */
-  public SwerveSetpointGen(
-      ChassisSpeeds currentSpeeds,
-      SwerveModuleState[] currentStates,
-      Supplier<Rotation2d> currentRotation) {
-    this.currentRotation = currentRotation;
-    currentSpeeds.toFieldRelativeSpeeds(currentRotation.get());
+  public GamePieceTrackDrive(ChassisSpeeds currentSpeeds, SwerveModuleState[] currentStates) {
     previousSetpoint =
         new SwerveSetpoint(
             currentSpeeds, currentStates, DriveFeedforwards.zeros(Constants.PP_CONFIG.numModules));
@@ -109,12 +106,16 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
     double toApplyX = VelocityX;
     double toApplyY = VelocityY;
     double toApplyOmega = RotationalRate;
-    Rotation2d toApplyRotation = currentRotation.get();
+    Rotation2d toApplyRotation = CurrentPose.getRotation();
 
     if (ForwardPerspective == ForwardPerspectiveValue.OperatorPerspective) {
       /* If we're operator perspective, modify the X/Y translation by the angle */
       Translation2d tmp = new Translation2d(toApplyX, toApplyY);
-      tmp = tmp.rotateBy(ForwardDirection);
+      tmp =
+          tmp.rotateBy(
+              DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red
+                  ? Rotation2d.kPi
+                  : Rotation2d.kZero);
       toApplyX = tmp.getX();
       toApplyY = tmp.getY();
     }
@@ -127,12 +128,38 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
       toApplyOmega = 0;
     }
 
+    Translation2d assistVelocity =
+        calculateAssistVelocity(
+            CurrentPose.getTranslation(), noteLocation, new Translation2d(toApplyX, toApplyY));
+
+    toApplyX += assistVelocity.getX();
+    toApplyY += assistVelocity.getY();
+
+    // Normalize the velocity
+    Translation2d normalizedVelocity = normalizeVector(new Translation2d(toApplyX, toApplyY));
+    Logger.recordOutput(
+        "GamePieceTrackDrive/normalizedVelocity", adjustVectorToRobotPosition(normalizedVelocity));
+    double originalMagnitude = Math.hypot(toApplyX, toApplyY);
+
+    Translation2d scaledVelocity = scaleVectorToMagnitude(normalizedVelocity, originalMagnitude);
+    toApplyX = scaledVelocity.getX();
+    toApplyY = scaledVelocity.getY();
+    double magnitude = Math.hypot(toApplyX, toApplyY);
+    if (magnitude <= 1e-6) {
+      toApplyX = 0.0;
+      toApplyY = 0.0;
+    }
+
     ChassisSpeeds speeds = new ChassisSpeeds(toApplyX, toApplyY, toApplyOmega);
     speeds.toRobotRelativeSpeeds(toApplyRotation);
 
+    Logger.recordOutput("GamePieceTrackDrive/chassisSpeeds", speeds);
+    Logger.recordOutput(
+        "GamePieceTrackDrive/gamePieceLocation", new Pose2d(noteLocation, new Rotation2d()));
+
     previousSetpoint =
         Constants.setpointGenerator.generateSetpoint(
-            previousSetpoint, // Last setpoint
+            previousSetpoint, // The previous setpoint
             speeds, // The desired target speeds
             0.02 // The loop time of the robot code, in seconds
             );
@@ -148,6 +175,71 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
         .applyNative(id);
   }
 
+  private Translation2d adjustVectorToRobotPosition(Translation2d vector) {
+    return CurrentPose.getTranslation().minus(vector);
+  }
+
+  private Translation2d vectorToTranslation(Vector<N2> vector) {
+    return new Translation2d(vector.get(0), vector.get(1));
+  }
+
+  private Translation2d calculatePerpedicularVector(
+      Translation2d robotToNote, Translation2d velocity) {
+    Vector<N2> robotToNoteVector = robotToNote.toVector();
+    Vector<N2> velocityVector = velocity.toVector();
+    double velocityProj = velocityVector.dot(velocityVector);
+    if (velocityProj == 0) {
+      return new Translation2d();
+    }
+    double projectionFactor = robotToNoteVector.dot(velocityVector) / velocityProj;
+    Vector<N2> projectionVector = velocityVector.times(projectionFactor);
+
+    Vector<N2> perpendicularVector = robotToNoteVector.minus(projectionVector);
+
+    return vectorToTranslation(perpendicularVector);
+  }
+
+  private Translation2d normalizeVector(Translation2d vector) {
+    double normalized = vector.getNorm();
+
+    if (normalized == 0) {
+      return vector;
+    }
+
+    return vector.div(normalized);
+  }
+
+  private Translation2d scaleVectorToMagnitude(Translation2d vector, double magnitude) {
+    Translation2d normalizedVector = normalizeVector(vector);
+    return normalizedVector.times(magnitude);
+  }
+
+  private Translation2d calculateAssistVelocity(
+      Translation2d robotPosition, Translation2d notePosition, Translation2d velocity) {
+    Translation2d robotToNoteVector = notePosition.minus(robotPosition);
+    Logger.recordOutput(
+        "GamePieceTrackDrive/robotToNoteVector", adjustVectorToRobotPosition(robotToNoteVector));
+
+    Translation2d perpendicularVector = calculatePerpedicularVector(robotToNoteVector, velocity);
+    Logger.recordOutput(
+        "GamePieceTrackDrive/perpendicularVector",
+        adjustVectorToRobotPosition(perpendicularVector));
+
+    Translation2d normalizedVector = normalizeVector(perpendicularVector);
+    Logger.recordOutput(
+        "GamePieceTrackDrive/normalizedVector", adjustVectorToRobotPosition(normalizedVector));
+
+    // Scale the assist velocity based on distance to target
+    double distance = robotToNoteVector.getNorm();
+    // Apply a scaling factor that decreases as we get closer to the target
+    double scaleFactor = Math.min(1, distance * 0.5); // Max 0.3, proportional to distance
+
+    Translation2d assistVelocity = scaleVectorToMagnitude(normalizedVector, scaleFactor);
+    Logger.recordOutput("GamePieceTrackDrive/assistVelocity", assistVelocity);
+
+    return assistVelocity;
+  }
+
   /**
    * Modifies the VelocityX parameter and returns itself.
    *
@@ -157,7 +249,7 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
    * @param newVelocityX Parameter to modify
    * @return this object
    */
-  public SwerveSetpointGen withVelocityX(double newVelocityX) {
+  public GamePieceTrackDrive withVelocityX(double newVelocityX) {
     this.VelocityX = newVelocityX;
     return this;
   }
@@ -171,7 +263,7 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
    * @param newVelocityX Parameter to modify
    * @return this object
    */
-  public SwerveSetpointGen withVelocityX(LinearVelocity newVelocityX) {
+  public GamePieceTrackDrive withVelocityX(LinearVelocity newVelocityX) {
     this.VelocityX = newVelocityX.in(MetersPerSecond);
     return this;
   }
@@ -185,7 +277,7 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
    * @param newVelocityY Parameter to modify
    * @return this object
    */
-  public SwerveSetpointGen withVelocityY(double newVelocityY) {
+  public GamePieceTrackDrive withVelocityY(double newVelocityY) {
     this.VelocityY = newVelocityY;
     return this;
   }
@@ -199,7 +291,7 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
    * @param newVelocityY Parameter to modify
    * @return this object
    */
-  public SwerveSetpointGen withVelocityY(LinearVelocity newVelocityY) {
+  public GamePieceTrackDrive withVelocityY(LinearVelocity newVelocityY) {
     this.VelocityY = newVelocityY.in(MetersPerSecond);
     return this;
   }
@@ -213,7 +305,7 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
    * @param newRotationalRate Parameter to modify
    * @return this object
    */
-  public SwerveSetpointGen withRotationalRate(double newRotationalRate) {
+  public GamePieceTrackDrive withRotationalRate(double newRotationalRate) {
     this.RotationalRate = newRotationalRate;
     return this;
   }
@@ -227,7 +319,7 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
    * @param newRotationalRate Parameter to modify
    * @return this object
    */
-  public SwerveSetpointGen withRotationalRate(AngularVelocity newRotationalRate) {
+  public GamePieceTrackDrive withRotationalRate(AngularVelocity newRotationalRate) {
     this.RotationalRate = newRotationalRate.in(RadiansPerSecond);
     return this;
   }
@@ -240,7 +332,7 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
    * @param newDeadband Parameter to modify
    * @return this object
    */
-  public SwerveSetpointGen withDeadband(double newDeadband) {
+  public GamePieceTrackDrive withDeadband(double newDeadband) {
     this.Deadband = newDeadband;
     return this;
   }
@@ -253,7 +345,7 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
    * @param newDeadband Parameter to modify
    * @return this object
    */
-  public SwerveSetpointGen withDeadband(LinearVelocity newDeadband) {
+  public GamePieceTrackDrive withDeadband(LinearVelocity newDeadband) {
     this.Deadband = newDeadband.in(MetersPerSecond);
     return this;
   }
@@ -266,7 +358,7 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
    * @param newRotationalDeadband Parameter to modify
    * @return this object
    */
-  public SwerveSetpointGen withRotationalDeadband(double newRotationalDeadband) {
+  public GamePieceTrackDrive withRotationalDeadband(double newRotationalDeadband) {
     this.RotationalDeadband = newRotationalDeadband;
     return this;
   }
@@ -279,8 +371,21 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
    * @param newRotationalDeadband Parameter to modify
    * @return this object
    */
-  public SwerveSetpointGen withRotationalDeadband(AngularVelocity newRotationalDeadband) {
+  public GamePieceTrackDrive withRotationalDeadband(AngularVelocity newRotationalDeadband) {
     this.RotationalDeadband = newRotationalDeadband.in(RadiansPerSecond);
+    return this;
+  }
+
+  /**
+   * Modifies the current Pose.
+   *
+   * <p>The current pose in Pose2d
+   *
+   * @param newPose Parameter to modify
+   * @return this object
+   */
+  public GamePieceTrackDrive withPose(Pose2d newPose) {
+    this.CurrentPose = newPose;
     return this;
   }
 
@@ -293,7 +398,7 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
    * @param newCenterOfRotation Parameter to modify
    * @return this object
    */
-  public SwerveSetpointGen withCenterOfRotation(Translation2d newCenterOfRotation) {
+  public GamePieceTrackDrive withCenterOfRotation(Translation2d newCenterOfRotation) {
     this.CenterOfRotation = newCenterOfRotation;
     return this;
   }
@@ -306,7 +411,8 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
    * @param newDriveRequestType Parameter to modify
    * @return this object
    */
-  public SwerveSetpointGen withDriveRequestType(SwerveModule.DriveRequestType newDriveRequestType) {
+  public GamePieceTrackDrive withDriveRequestType(
+      SwerveModule.DriveRequestType newDriveRequestType) {
     this.DriveRequestType = newDriveRequestType;
     return this;
   }
@@ -319,7 +425,8 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
    * @param newSteerRequestType Parameter to modify
    * @return this object
    */
-  public SwerveSetpointGen withSteerRequestType(SwerveModule.SteerRequestType newSteerRequestType) {
+  public GamePieceTrackDrive withSteerRequestType(
+      SwerveModule.SteerRequestType newSteerRequestType) {
     this.SteerRequestType = newSteerRequestType;
     return this;
   }
@@ -333,7 +440,7 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
    * @param newDesaturateWheelSpeeds Parameter to modify
    * @return this object
    */
-  public SwerveSetpointGen withDesaturateWheelSpeeds(boolean newDesaturateWheelSpeeds) {
+  public GamePieceTrackDrive withDesaturateWheelSpeeds(boolean newDesaturateWheelSpeeds) {
     this.DesaturateWheelSpeeds = newDesaturateWheelSpeeds;
     return this;
   }
@@ -346,21 +453,8 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
    * @param newForwardPerspective Parameter to modify
    * @return this object
    */
-  public SwerveSetpointGen withForwardPerspective(ForwardPerspectiveValue newForwardPerspective) {
+  public GamePieceTrackDrive withForwardPerspective(ForwardPerspectiveValue newForwardPerspective) {
     this.ForwardPerspective = newForwardPerspective;
-    return this;
-  }
-
-  /**
-   * Modifies the OperatorForwardDirection parameter and returns itself.
-   *
-   * <p>The perspective to use when determining which direction is forward.
-   *
-   * @param newForwardPerspective Parameter to modify
-   * @return this object
-   */
-  public SwerveSetpointGen withOperatorForwardDirection(Rotation2d newForwardDirection) {
-    this.ForwardDirection = newForwardDirection;
     return this;
   }
 }

@@ -1,6 +1,7 @@
 package frc.robot.subsystems.vision;
 
-import edu.wpi.first.math.util.Units;
+import static edu.wpi.first.units.Units.DegreesPerSecond;
+
 import edu.wpi.first.networktables.DoubleSubscriber;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.wpilibj.RobotController;
@@ -40,12 +41,11 @@ public class VisionIOLimelight implements VisionIO {
     // Update connection status based on whether an update has been seen in the last 250ms
     VisionParameters currentParams = this.visionParams.get();
     inputs.connected = (RobotController.getFPGATime() - latencySubscriber.getLastChange()) < 250;
-    double rotationSpeed = Units.radiansToDegrees(currentParams.yawVelocityRadPerSec());
 
     LimelightHelpers.SetRobotOrientation(
         cameraName,
         currentParams.robotPose().getRotation().getDegrees(),
-        rotationSpeed,
+        currentParams.gyroRate().in(DegreesPerSecond),
         0,
         0,
         0,
