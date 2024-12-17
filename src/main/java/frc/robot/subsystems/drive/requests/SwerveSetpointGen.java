@@ -8,6 +8,7 @@ import com.ctre.phoenix6.swerve.SwerveModule;
 import com.ctre.phoenix6.swerve.SwerveRequest.NativeSwerveRequest;
 import com.pathplanner.lib.util.DriveFeedforwards;
 import com.pathplanner.lib.util.swerve.SwerveSetpoint;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
@@ -83,7 +84,7 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
   private SwerveSetpoint previousSetpoint;
 
   /* The current rotation of the robot */
-  public Supplier<Rotation2d> currentRotation;
+  public Supplier<Pose2d> currentPose;
 
   /**
    * Creates a new profiled SwerveSetpoint request with the given constraints.
@@ -93,9 +94,9 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
   public SwerveSetpointGen(
       ChassisSpeeds currentSpeeds,
       SwerveModuleState[] currentStates,
-      Supplier<Rotation2d> currentRotation) {
-    this.currentRotation = currentRotation;
-    currentSpeeds.toFieldRelativeSpeeds(currentRotation.get());
+      Supplier<Pose2d> currentPose) {
+    this.currentPose = currentPose;
+    currentSpeeds.toFieldRelativeSpeeds(currentPose.get().getRotation());
     previousSetpoint =
         new SwerveSetpoint(
             currentSpeeds, currentStates, DriveFeedforwards.zeros(Constants.PP_CONFIG.numModules));
@@ -109,7 +110,7 @@ public class SwerveSetpointGen implements NativeSwerveRequest {
     double toApplyX = VelocityX;
     double toApplyY = VelocityY;
     double toApplyOmega = RotationalRate;
-    Rotation2d toApplyRotation = currentRotation.get();
+    Rotation2d toApplyRotation = currentPose.get().getRotation();
 
     if (ForwardPerspective == ForwardPerspectiveValue.OperatorPerspective) {
       /* If we're operator perspective, modify the X/Y translation by the angle */

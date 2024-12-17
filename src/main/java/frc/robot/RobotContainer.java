@@ -20,10 +20,8 @@ import frc.robot.subsystems.drive.DriveIO;
 import frc.robot.subsystems.drive.DriveIOCTRE;
 import frc.robot.subsystems.drive.module.ModuleIO;
 import frc.robot.subsystems.drive.module.ModuleIOCTRE;
-import frc.robot.subsystems.drive.requests.GamePieceTrackDrive;
 import frc.robot.subsystems.drive.requests.ProfiledFieldCentricFacingAngle;
 import frc.robot.subsystems.drive.requests.SwerveSetpointGen;
-
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOLimelight;
@@ -37,7 +35,7 @@ public class RobotContainer {
   private final LoggedDashboardChooser<Command> autoChooser;
 
   public final Drive drivetrain;
-  
+
   // CTRE Default Drive Request
   private final SwerveRequest.FieldCentric drive =
       new SwerveRequest.FieldCentric()
@@ -165,7 +163,6 @@ public class RobotContainer {
                             -joystick
                                 .getRightX())))); // Drive counterclockwise with negative X (left)
 
-    joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
     joystick
         .b()
         .whileTrue(
@@ -174,12 +171,9 @@ public class RobotContainer {
                     point.withModuleDirection(
                         new Rotation2d(-joystick.getLeftY(), -joystick.getLeftX()))));
 
-    // Custom Swerve Request that use PathPlanner Setpoint Generator. You will need to tune PP_CONFIG first
     SwerveSetpointGen setpointGen =
         new SwerveSetpointGen(
-                drivetrain.getChassisSpeeds(),
-                drivetrain.getModuleStates(),
-                drivetrain::getRotation)
+                drivetrain.getChassisSpeeds(), drivetrain.getModuleStates(), drivetrain::getPose)
             .withDeadband(MaxSpeed.times(0.1))
             .withRotationalDeadband(Constants.MaxAngularRate.times(0.1))
             .withDriveRequestType(DriveRequestType.OpenLoopVoltage);
@@ -195,8 +189,23 @@ public class RobotContainer {
                         .withVelocityY(MaxSpeed.times(-joystick.getLeftX()))
                         .withRotationalRate(Constants.MaxAngularRate.times(-joystick.getRightX()))
                         .withOperatorForwardDirection(drivetrain.getOperatorForwardDirection())));
+    // Custom Swerve Request that use PathPlanner Setpoint Generator. You will need to tune
+    // PP_CONFIG first
+    joystick
+        .x()
+        .whileTrue(
+            drivetrain.applyRequest(
+                () ->
+                    setpointGen
+                        .withVelocityX(
+                            MaxSpeed.times(
+                                -joystick.getLeftY())) // Drive forward with negative Y (forward)
+                        .withVelocityY(MaxSpeed.times(-joystick.getLeftX()))
+                        .withRotationalRate(Constants.MaxAngularRate.times(-joystick.getRightX()))
+                        .withOperatorForwardDirection(drivetrain.getOperatorForwardDirection())));
 
-    // Custom Swerve Request that use ProfiledFieldCentricFacingAngle. Allows you to face specific direction while driving
+    // Custom Swerve Request that use ProfiledFieldCentricFacingAngle. Allows you to face specific
+    // direction while driving
     ProfiledFieldCentricFacingAngle driveFacingAngle =
         new ProfiledFieldCentricFacingAngle(
                 new TrapezoidProfile.Constraints(
@@ -204,7 +213,7 @@ public class RobotContainer {
                     Constants.MaxAngularRate.div(0.25).baseUnitMagnitude()))
             .withDeadband(MaxSpeed.times(0.1))
             .withDriveRequestType(DriveRequestType.OpenLoopVoltage);
-            //Set PID for ProfiledFieldCentricFacingAngle
+    // Set PID for ProfiledFieldCentricFacingAngle
     driveFacingAngle.HeadingController.setPID(7, 0, 0);
     joystick
         .y()
