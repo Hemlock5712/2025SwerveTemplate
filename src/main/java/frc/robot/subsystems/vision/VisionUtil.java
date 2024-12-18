@@ -3,7 +3,11 @@ package frc.robot.subsystems.vision;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.Vector;
 import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.numbers.N3;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.DriverStation;
 import frc.robot.LimelightHelpers.PoseEstimate;
 import frc.robot.LimelightHelpers.PoseObservation;
@@ -23,6 +27,13 @@ public class VisionUtil {
   private static final double MA_VISION_STD_DEV_XY = 0.333;
   private static final double MA_VISION_STD_DEV_THETA = 5;
   public static final double MA_AMBIGUITY = 0.4;
+
+  // PhotonVision Camera Position Constants
+  public static final Transform3d CAMERA_LOCATION =
+      new Transform3d(
+          new Translation3d(
+              Units.inchesToMeters(-10.625), Units.inchesToMeters(11.5), Units.inchesToMeters(9.5)),
+          new Rotation3d(0, Math.toRadians(-28.), Math.toRadians(150.)));
 
   // Enum to represent different modes with unique implementations for each
   public enum VisionMode {
@@ -77,18 +88,18 @@ public class VisionUtil {
 
       @Override
       public boolean acceptVisionMeasurement(PoseObservation mt) {
-        //       final double kMinAreaMegatagEnabled = 0.05;
-        //       if (poseEstimate.avgTagArea < kMinAreaForMegatag) {
-        //         Logger.recordOutput(logPreface + "megaTagAvgTagArea", false);
-        //         return false;
-        //     }
-        //     if (poseEstimate.fiducialIds.length != kExpectedTagCount) {
-        //       Logger.recordOutput(logPreface + "fiducialLength", false);
-        //       return false;
-        //   }
-        //   if (fiducial.ambiguity > .9) {
-        //     Logger.recordOutput(logPreface + "Ambiguity", false);
-        //     return false;
+        // final double kMinAreaMegatagEnabled = 0.05;
+        // if (poseEstimate.avgTagArea < kMinAreaForMegatag) {
+        // Logger.recordOutput(logPreface + "megaTagAvgTagArea", false);
+        // return false;
+        // }
+        // if (poseEstimate.fiducialIds.length != kExpectedTagCount) {
+        // Logger.recordOutput(logPreface + "fiducialLength", false);
+        // return false;
+        // }
+        // if (fiducial.ambiguity > .9) {
+        // Logger.recordOutput(logPreface + "Ambiguity", false);
+        // return false;
         // }
         return false;
       }
@@ -153,7 +164,8 @@ public class VisionUtil {
     }
   }
 
-  // Method to check if match hasn't started and we should be using MT1 to get starting pose
+  // Method to check if match hasn't started and we should be using MT1 to get
+  // starting pose
   private static boolean beforeMatch() {
     return BEFORE_MATCH ? DriverStation.isEnabled() : BEFORE_MATCH;
   }
