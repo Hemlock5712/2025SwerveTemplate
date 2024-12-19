@@ -31,7 +31,8 @@ public interface ModuleIO {
     public Angle drivePosition = Radians.of(0.0);
     public AngularVelocity driveVelocity = RotationsPerSecond.of(0.0);
     public Voltage driveAppliedVolts = Volt.of(0.0);
-    public Current driveCurrent = Amps.of(0.0);
+    public Current driveStatorCurrent = Amps.of(0.0);
+    public Current driveTorqueCurrent = Amps.of(0.0);
 
     public boolean turnConnected = false;
     public boolean turnEncoderConnected = false;
@@ -39,7 +40,8 @@ public interface ModuleIO {
     public Rotation2d turnPosition = new Rotation2d();
     public AngularVelocity turnVelocity = RotationsPerSecond.of(0.0);
     public Voltage turnAppliedVolts = Volt.of(0.0);
-    public Current turnCurrent = Amps.of(0.0);
+    public Current turnStatorCurrent = Amps.of(0.0);
+    public Current turnTorqueCurrent = Amps.of(0.0);
   }
 
   /** Updates the set of loggable inputs. */

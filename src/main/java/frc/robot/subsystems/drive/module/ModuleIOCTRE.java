@@ -24,14 +24,16 @@ public class ModuleIOCTRE implements ModuleIO {
   private final StatusSignal<Angle> drivePosition;
   private final StatusSignal<AngularVelocity> driveVelocity;
   private final StatusSignal<Voltage> driveAppliedVolts;
-  private final StatusSignal<Current> driveCurrent;
+  private final StatusSignal<Current> driveStatorCurrent;
+  private final StatusSignal<Current> driveTorqueCurrent;
 
   // Inputs from turn motor
   private final StatusSignal<Angle> turnAbsolutePosition;
   private final StatusSignal<Angle> turnPosition;
   private final StatusSignal<AngularVelocity> turnVelocity;
   private final StatusSignal<Voltage> turnAppliedVolts;
-  private final StatusSignal<Current> turnCurrent;
+  private final StatusSignal<Current> turnStatorCurrent;
+  private final StatusSignal<Current> turnTorqueCurrent;
 
   // Connection debouncers
   private final Debouncer driveConnectedDebounce = new Debouncer(0.5);
@@ -48,25 +50,29 @@ public class ModuleIOCTRE implements ModuleIO {
     drivePosition = driveTalon.getPosition();
     driveVelocity = driveTalon.getVelocity();
     driveAppliedVolts = driveTalon.getMotorVoltage();
-    driveCurrent = driveTalon.getStatorCurrent();
+    driveStatorCurrent = driveTalon.getStatorCurrent();
+    driveTorqueCurrent = driveTalon.getTorqueCurrent();
 
     // Create turn status signals
     turnAbsolutePosition = cancoder.getAbsolutePosition();
     turnPosition = turnTalon.getPosition();
     turnVelocity = turnTalon.getVelocity();
     turnAppliedVolts = turnTalon.getMotorVoltage();
-    turnCurrent = turnTalon.getStatorCurrent();
+    turnStatorCurrent = turnTalon.getStatorCurrent();
+    turnTorqueCurrent = turnTalon.getTorqueCurrent();
     BaseStatusSignal.setUpdateFrequencyForAll(
         TunerConstants.kCANBus.isNetworkFD() ? 250.0 : 100.0, drivePosition, turnPosition);
     BaseStatusSignal.setUpdateFrequencyForAll(
         50.0,
         driveVelocity,
         driveAppliedVolts,
-        driveCurrent,
+        driveStatorCurrent,
+        driveTorqueCurrent,
         turnAbsolutePosition,
         turnVelocity,
         turnAppliedVolts,
-        turnCurrent);
+        turnStatorCurrent,
+        turnTorqueCurrent);
     ParentDevice.optimizeBusUtilizationForAll(4.0, driveTalon, turnTalon);
   }
 
@@ -74,9 +80,15 @@ public class ModuleIOCTRE implements ModuleIO {
   public void updateInputs(ModuleIOInputs inputs) {
     // Update drive inputs
     var driveStatus =
-        BaseStatusSignal.refreshAll(drivePosition, driveVelocity, driveAppliedVolts, driveCurrent);
+        BaseStatusSignal.refreshAll(
+            drivePosition,
+            driveVelocity,
+            driveAppliedVolts,
+            driveStatorCurrent,
+            driveTorqueCurrent);
     var turnStatus =
-        BaseStatusSignal.refreshAll(turnPosition, turnVelocity, turnAppliedVolts, turnCurrent);
+        BaseStatusSignal.refreshAll(
+            turnPosition, turnVelocity, turnAppliedVolts, turnStatorCurrent, turnTorqueCurrent);
     var turnEncoderStatus = BaseStatusSignal.refreshAll(turnAbsolutePosition);
 
     // Update drive inputs
@@ -84,7 +96,8 @@ public class ModuleIOCTRE implements ModuleIO {
     inputs.drivePosition = drivePosition.getValue();
     inputs.driveVelocity = driveVelocity.getValue();
     inputs.driveAppliedVolts = driveAppliedVolts.getValue();
-    inputs.driveCurrent = driveCurrent.getValue();
+    inputs.driveStatorCurrent = driveStatorCurrent.getValue();
+    inputs.driveTorqueCurrent = driveTorqueCurrent.getValue();
 
     // Update turn inputs
     inputs.turnConnected = turnConnectedDebounce.calculate(turnStatus.isOK());
@@ -93,6 +106,7 @@ public class ModuleIOCTRE implements ModuleIO {
     inputs.turnPosition = Rotation2d.fromRotations(turnPosition.getValueAsDouble());
     inputs.turnVelocity = turnVelocity.getValue();
     inputs.turnAppliedVolts = turnAppliedVolts.getValue();
-    inputs.turnCurrent = turnCurrent.getValue();
+    inputs.turnStatorCurrent = turnStatorCurrent.getValue();
+    inputs.turnTorqueCurrent = turnTorqueCurrent.getValue();
   }
 }

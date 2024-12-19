@@ -21,6 +21,7 @@ import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.Constants;
 import frc.robot.subsystems.drive.module.Module;
 import frc.robot.subsystems.drive.module.ModuleIO;
+import frc.robot.subsystems.drive.requests.SysIdSwerveTranslation_Torque;
 import frc.robot.subsystems.vision.VisionUtil.VisionMeasurement;
 import java.util.List;
 import java.util.function.Supplier;
@@ -52,24 +53,44 @@ public class Drive extends SubsystemBase {
   private final SwerveRequest.SwerveDriveBrake brakeRequest = new SwerveRequest.SwerveDriveBrake();
 
   /* Swerve requests to apply during SysId characterization */
-  private final SwerveRequest.SysIdSwerveTranslation m_translationCharacterization =
-      new SwerveRequest.SysIdSwerveTranslation();
+  // private final SwerveRequest.SysIdSwerveTranslation m_translationCharacterization =
+  //     new SwerveRequest.SysIdSwerveTranslation();
   private final SwerveRequest.SysIdSwerveSteerGains m_steerCharacterization =
       new SwerveRequest.SysIdSwerveSteerGains();
   private final SwerveRequest.SysIdSwerveRotation m_rotationCharacterization =
       new SwerveRequest.SysIdSwerveRotation();
 
-  /* SysId routine for characterizing translation. This is used to find PID gains for the drive motors. */
+  private final SysIdSwerveTranslation_Torque m_translationCharacterization =
+      new SysIdSwerveTranslation_Torque();
+
   private final SysIdRoutine m_sysIdRoutineTranslation =
       new SysIdRoutine(
           new SysIdRoutine.Config(
-              null, // Use default ramp rate (1 V/s)
-              Volts.of(4), // Reduce dynamic step voltage to 4 V to prevent brownout
-              null, // Use default timeout (10 s)
-              // Log state with Logger class
+              Volts.of(5).per(Second), // Use ramp rate of 5 A/s
+              Volts.of(15), // Use dynamic step of 10 A
+              Seconds.of(5), // Use timeout of 5 seconds
+              // Log state with SignalLogger class
               state -> Logger.recordOutput("SysIdTranslation_State", state.toString())),
           new SysIdRoutine.Mechanism(
-              output -> setControl(m_translationCharacterization.withVolts(output)), null, this));
+              output ->
+                  setControl(
+                      m_translationCharacterization.withTorqueCurrent(
+                          output.in(Volts))), // treat volts as amps
+              null,
+              this));
+
+  /* SysId routine for characterizing translation. This is used to find PID gains for the drive motors. */
+  // private final SysIdRoutine m_sysIdRoutineTranslation =
+  //     new SysIdRoutine(
+  //         new SysIdRoutine.Config(
+  //             null, // Use default ramp rate (1 V/s)
+  //             Volts.of(4), // Reduce dynamic step voltage to 4 V to prevent brownout
+  //             null, // Use default timeout (10 s)
+  //             // Log state with Logger class
+  //             state -> Logger.recordOutput("SysIdTranslation_State", state.toString())),
+  //         new SysIdRoutine.Mechanism(
+  //             output -> setControl(m_translationCharacterization.withVolts(output)), null,
+  // this));
 
   /* SysId routine for characterizing steer. This is used to find PID gains for the steer motors. */
   private final SysIdRoutine m_sysIdRoutineSteer =
