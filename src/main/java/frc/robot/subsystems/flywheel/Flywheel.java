@@ -13,6 +13,7 @@ public class Flywheel extends SubsystemBase {
   private final Alert flywheelDisconnectedAlert;
 
   public Flywheel(FlywheelIO io) {
+    System.out.println("[Init] Creating Flywheel");
     this.io = io;
     flywheelDisconnectedAlert = new Alert("Disconnected flywheel motor", AlertType.kError);
   }
@@ -22,6 +23,6 @@ public class Flywheel extends SubsystemBase {
     io.updateInputs(inputs);
     Logger.processInputs("Flywheel", inputs);
     // Update alerts
-    flywheelDisconnectedAlert.set(!inputs.flywheelConnected);
+    flywheelDisconnectedAlert.set(!inputs.flywheelMotorConnected);
   }
 }
