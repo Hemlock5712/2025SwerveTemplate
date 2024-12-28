@@ -30,6 +30,7 @@ import edu.wpi.first.units.measure.Mass;
 import edu.wpi.first.units.measure.MomentOfInertia;
 import edu.wpi.first.wpilibj.RobotBase;
 import frc.robot.generated.TunerConstants;
+import frc.robot.utils.PPUtil;
 
 /**
  * This class defines the runtime mode used by AdvantageKit. The mode is always "real" when running
@@ -64,7 +65,6 @@ public final class Constants {
           Math.max(
               Math.hypot(TunerConstants.BackLeft.LocationX, TunerConstants.BackLeft.LocationY),
               Math.hypot(TunerConstants.BackRight.LocationX, TunerConstants.BackRight.LocationY)));
-
   public static final RobotConfig PP_CONFIG =
       new RobotConfig(
           ROBOT_MASS,
@@ -92,5 +92,17 @@ public final class Constants {
 
     /** Replaying from a log file. */
     REPLAY
+  }
+
+  static {
+    RobotConfig config;
+    try {
+      config = RobotConfig.fromGUISettings();
+      // Check if the GUI settings match the constants
+      PPUtil.compareConfigs(config, PP_CONFIG);
+    } catch (Exception e) {
+      PPUtil.badGUI();
+      e.printStackTrace();
+    }
   }
 }
