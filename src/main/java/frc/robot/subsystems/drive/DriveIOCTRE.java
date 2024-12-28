@@ -8,7 +8,6 @@ import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveDrivetrain;
 import com.ctre.phoenix6.swerve.SwerveDrivetrainConstants;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants;
-import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.wpilibj.Notifier;
 import edu.wpi.first.wpilibj.RobotController;
 
@@ -20,8 +19,6 @@ public class DriveIOCTRE extends SwerveDrivetrain implements DriveIO {
   private static final double kSimLoopPeriod = 0.005; // 5 ms
   private Notifier m_simNotifier;
   private double m_lastSimTime;
-
-  private final Debouncer gyroConnectedDebounce = new Debouncer(0.5);
 
   public DriveIOCTRE(
       SwerveDrivetrainConstants driveTrainConstants,
@@ -55,7 +52,7 @@ public class DriveIOCTRE extends SwerveDrivetrain implements DriveIO {
     inputs.failedDaqs = state.FailedDaqs;
 
     inputs.gyroRate = super.getPigeon2().getAngularVelocityZWorld().getValue();
-    inputs.gyroConnected = gyroConnectedDebounce.calculate(super.getPigeon2().isConnected());
+    inputs.gyroConnected = super.getPigeon2().isConnected();
 
     inputs.operatorForwardDirection = super.getOperatorForwardDirection();
     inputs.odometryIsValid = super.isOdometryValid();

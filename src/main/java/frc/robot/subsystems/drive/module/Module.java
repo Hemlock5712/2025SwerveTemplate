@@ -13,8 +13,7 @@
 package frc.robot.subsystems.drive.module;
 
 import edu.wpi.first.units.measure.Angle;
-import edu.wpi.first.wpilibj.Alert;
-import edu.wpi.first.wpilibj.Alert.AlertType;
+import frc.robot.utils.DebouncedAlert;
 import org.littletonrobotics.junction.Logger;
 
 public class Module {
@@ -22,24 +21,28 @@ public class Module {
   private final ModuleIOInputsAutoLogged inputs = new ModuleIOInputsAutoLogged();
   private final int index;
 
-  private final Alert driveDisconnectedAlert;
-  private final Alert turnDisconnectedAlert;
-  private final Alert turnEncoderDisconnectedAlert;
+  private final DebouncedAlert driveDisconnectedAlert;
+  private final DebouncedAlert turnDisconnectedAlert;
+  private final DebouncedAlert turnEncoderDisconnectedAlert;
 
   public Module(ModuleIO io, int index) {
     this.io = io;
     this.index = index;
     driveDisconnectedAlert =
-        new Alert(
+        new DebouncedAlert(
+            "Drive motor disconnected or booting on module " + Integer.toString(index),
             "Disconnected drive motor on module " + Integer.toString(index) + ".",
-            AlertType.kError);
+            0.5);
     turnDisconnectedAlert =
-        new Alert(
-            "Disconnected turn motor on module " + Integer.toString(index) + ".", AlertType.kError);
+        new DebouncedAlert(
+            "Turn motor disconnected or booting on module " + Integer.toString(index),
+            "Disconnected turn motor on module " + Integer.toString(index) + ".",
+            0.5);
     turnEncoderDisconnectedAlert =
-        new Alert(
+        new DebouncedAlert(
+            "Turn encoder disconnected or booting on module " + Integer.toString(index),
             "Disconnected turn encoder on module " + Integer.toString(index) + ".",
-            AlertType.kError);
+            0.5);
   }
 
   public void periodic() {

@@ -13,8 +13,6 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
-import edu.wpi.first.wpilibj.Alert;
-import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -24,6 +22,7 @@ import frc.robot.Constants;
 import frc.robot.subsystems.drive.module.Module;
 import frc.robot.subsystems.drive.module.ModuleIO;
 import frc.robot.subsystems.vision.VisionUtil.VisionMeasurement;
+import frc.robot.utils.DebouncedAlert;
 import java.util.List;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
@@ -39,7 +38,7 @@ public class Drive extends SubsystemBase {
 
   private Module[] modules = new Module[4];
 
-  private final Alert gyroDisconnectedAlert;
+  private final DebouncedAlert gyroDisconnectedAlert;
 
   /* Blue alliance sees forward as 0 degrees (toward red alliance wall) */
   private static final Rotation2d kBlueAlliancePerspectiveRotation = Rotation2d.kZero;
@@ -130,7 +129,8 @@ public class Drive extends SubsystemBase {
     modules[2] = new Module(blModuleIO, 2);
     modules[3] = new Module(brModuleIO, 3);
 
-    gyroDisconnectedAlert = new Alert("Gyro Disconnected", AlertType.kError);
+    gyroDisconnectedAlert =
+        new DebouncedAlert("Gyro turning on or disconnected", "Gyro Disconnected", 0.5);
 
     configureAutoBuilder();
   }
