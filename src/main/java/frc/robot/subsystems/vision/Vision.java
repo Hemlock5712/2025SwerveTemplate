@@ -15,55 +15,79 @@ import java.util.Arrays;
 import java.util.List;
 import org.littletonrobotics.junction.Logger;
 
+/**
+ * Subsystem that handles vision processing from multiple cameras using AprilTags. Processes data
+ * from MegaTag1 and MegaTag2 vision systems, validates measurements, and provides filtered vision
+ * data to the robot's pose estimator.
+ */
 public class Vision extends SubsystemBase {
+
+  private static final VisionMode MODE = VisionMode.MA;
+  private static final String VISION_PATH = "Vision/Camera";
 
   private final VisionConsumer consumer;
   private final VisionIO[] io;
   private final VisionIOInputsAutoLogged[] inputs;
   private final Alert[] disconnectedAlerts;
 
-  private static final VisionMode mode = VisionMode.MA;
-
-  private static final String VISION_PATH = "Vision/Camera";
-
+  /**
+   * Creates a new Vision subsystem.
+   *
+   * @param consumer Callback interface for processed vision measurements
+   * @param io Array of VisionIO interfaces for each camera
+   */
   public Vision(VisionConsumer consumer, VisionIO... io) {
     System.out.println("[Init] Creating Vision");
     this.consumer = consumer;
     this.io = io;
+
+    // Initialize input arrays for each camera
     inputs = new VisionIOInputsAutoLogged[io.length];
     for (int i = 0; i < io.length; i++) {
       inputs[i] = new VisionIOInputsAutoLogged();
     }
-    // Initialize disconnected alerts
-    this.disconnectedAlerts = new Alert[io.length];
+
+    // Initialize disconnection alerts for each camera
+    disconnectedAlerts = new Alert[io.length];
     for (int i = 0; i < inputs.length; i++) {
       disconnectedAlerts[i] =
-          new Alert(
-              "Vision camera " + Integer.toString(i) + " is disconnected.", AlertType.kWarning);
+          new Alert(String.format("Vision camera %d is disconnected.", i), AlertType.kWarning);
     }
   }
 
   @Override
   public void periodic() {
+    // Update inputs and check connection status for each camera
     for (int i = 0; i < io.length; i++) {
       io[i].updateInputs(inputs[i]);
       disconnectedAlerts[i].set(!inputs[i].connected);
-      Logger.processInputs(VISION_PATH + Integer.toString(i), inputs[i]);
+      Logger.processInputs(VISION_PATH + i, inputs[i]);
     }
+
+    // Process vision data and send to consumer
     VisionData visionData = processAllCameras();
     logSummary(visionData);
     consumer.accept(sortMeasurements(visionData.measurements()));
   }
 
+  /**
+   * Processes vision data from all cameras and combines the results.
+   *
+   * @return Combined VisionData from all cameras
+   */
   private VisionData processAllCameras() {
-    VisionData combinedData = VisionData.empty();
-    for (int cameraIndex = 0; cameraIndex < io.length; cameraIndex++) {
-      VisionData cameraData = processCamera(cameraIndex, inputs[cameraIndex]);
-      combinedData = combinedData.merge(cameraData);
-    }
-    return combinedData;
+    return Arrays.stream(inputs)
+        .map(input -> processCamera(Arrays.asList(inputs).indexOf(input), input))
+        .reduce(VisionData.empty(), VisionData::merge);
   }
 
+  /**
+   * Processes vision data from a single camera.
+   *
+   * @param cameraIndex Index of the camera being processed
+   * @param input Input data from the camera
+   * @return Processed VisionData for this camera
+   */
   private VisionData processCamera(int cameraIndex, VisionIOInputs input) {
     PoseObservation[] poseObservations = {
       new PoseObservation(input.poseEstimateMT1, input.rawFiducialsMT1),
@@ -76,8 +100,14 @@ public class Vision extends SubsystemBase {
         .reduce(VisionData.empty(), VisionData::merge);
   }
 
+  /**
+   * Processes a single pose observation from a camera.
+   *
+   * @param cameraIndex Index of the camera that made the observation
+   * @param observation The pose observation to process
+   * @return Processed VisionData for this observation
+   */
   private VisionData processObservation(int cameraIndex, PoseObservation observation) {
-    // Create lists for measurements and poses
     List<VisionMeasurement> measurements = new ArrayList<>();
     List<Pose3d> tagPoses = new ArrayList<>();
     List<Pose3d> acceptedTagPoses = new ArrayList<>();
@@ -86,12 +116,13 @@ public class Vision extends SubsystemBase {
     List<Pose3d> acceptedPoses = new ArrayList<>();
     List<Pose3d> rejectedPoses = new ArrayList<>();
 
-    var robotPose = observation.poseEstimate().pose();
-    // Add robot pose
+    Pose3d robotPose = observation.poseEstimate().pose();
     robotPoses.add(robotPose);
 
-    // Process tag poses. If tag exist in FieldConstants.aprilTags, add to tagPoses
-    boolean acceptedVisionMeasurement = mode.acceptVisionMeasurement(observation);
+    // Validate measurement against current vision mode criteria
+    boolean acceptedVisionMeasurement = MODE.acceptVisionMeasurement(observation);
+
+    // Process detected AprilTags
     for (var tag : observation.rawFiducials()) {
       FieldConstants.aprilTags
           .getTagPose(tag.id())
@@ -106,16 +137,16 @@ public class Vision extends SubsystemBase {
               });
     }
 
-    // Handle acceptance/rejection
+    // Add to appropriate accepted/rejected lists
     if (acceptedVisionMeasurement) {
-      measurements.add(mode.getVisionMeasurement(observation.poseEstimate()));
+      measurements.add(MODE.getVisionMeasurement(observation.poseEstimate()));
       acceptedPoses.add(robotPose);
     } else {
       rejectedPoses.add(robotPose);
     }
 
-    // Create VisionData object to return for specific camera
-    var data =
+    // Create and log vision data
+    VisionData data =
         new VisionData(
             measurements,
             tagPoses,
@@ -127,17 +158,21 @@ public class Vision extends SubsystemBase {
 
     String mtType = observation.poseEstimate().isMegaTag2() ? "/MegaTag2" : "/MegaTag1";
     logCameraData(cameraIndex, mtType, data);
+
     return data;
   }
 
+  /** Logs vision data for a specific camera and MegaTag type. */
   private void logCameraData(int cameraIndex, String mtType, VisionData data) {
     logPoses(VISION_PATH + cameraIndex + mtType, data);
   }
 
+  /** Logs summary of all vision data. */
   private void logSummary(VisionData data) {
     logPoses("Vision/Summary", data);
   }
 
+  /** Logs pose data to AdvantageKit. */
   private void logPoses(String basePath, VisionData data) {
     Logger.recordOutput(basePath + "/TagPoses", toPose3dArray(data.tagPoses()));
     Logger.recordOutput(basePath + "/TagPosesAccepted", toPose3dArray(data.acceptedTagPoses()));
@@ -147,10 +182,12 @@ public class Vision extends SubsystemBase {
     Logger.recordOutput(basePath + "/RobotPosesRejected", toPose3dArray(data.rejectedPoses()));
   }
 
+  /** Converts a list of poses to an array. */
   private Pose3d[] toPose3dArray(List<Pose3d> poses) {
     return poses.toArray(new Pose3d[poses.size()]);
   }
 
+  /** Sorts vision measurements by timestamp. */
   private List<VisionMeasurement> sortMeasurements(List<VisionMeasurement> measurements) {
     return measurements.stream()
         .sorted(
@@ -160,8 +197,9 @@ public class Vision extends SubsystemBase {
         .toList();
   }
 
+  /** Functional interface for consuming processed vision measurements. */
   @FunctionalInterface
   public static interface VisionConsumer {
-    public void accept(List<VisionMeasurement> visionMeasurements);
+    void accept(List<VisionMeasurement> visionMeasurements);
   }
 }

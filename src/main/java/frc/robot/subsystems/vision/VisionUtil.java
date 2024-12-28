@@ -11,21 +11,33 @@ import frc.robot.utils.FieldConstants;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Utility class for vision processing that provides different vision modes, measurement validation,
+ * and data structures for vision measurements. Supports both MegaTag1 (MT1) and MegaTag2 (MT2)
+ * vision systems.
+ */
 public class VisionUtil {
+  // Configuration constants
+  private static boolean BEFORE_MATCH = true; // Controls MT1-only usage before match
+  public static final double FIELD_MARGIN =
+      0.5; // Meters beyond field boundaries to accept measurements
+  public static final double Z_MARGIN = 0.5; // Meters above/below field to accept measurements
+  public static final double MT2_SPIN_MAX = 40.0; // Maximum rotation speed for MT2 measurements
 
-  // We are using this to only use MT1 before the match.
-  private static boolean BEFORE_MATCH = true;
-  public static final double FIELD_MARGIN = 0.5;
-  public static final double Z_MARGIN = 0.5;
-  public static final double MT2_SPIN_MAX = 40.0;
-
-  // MA Vision Constants
+  // Vision measurement constants for MA mode
   private static final double MA_VISION_STD_DEV_XY = 0.333;
   private static final double MA_VISION_STD_DEV_THETA = 5;
   public static final double MA_AMBIGUITY = 0.4;
 
-  // Enum to represent different modes with unique implementations for each
+  /**
+   * Enum defining different vision processing modes with unique validation and measurement
+   * calculation implementations.
+   */
   public enum VisionMode {
+    /**
+     * Mode that rejects all vision measurements. Useful for testing or when vision should be
+     * temporarily disabled.
+     */
     NONE {
       @Override
       public VisionMeasurement getVisionMeasurement(PoseEstimate mt) {
@@ -37,10 +49,13 @@ public class VisionUtil {
         return false;
       }
     },
+
+    /** Standard vision mode with distance-based standard deviations and basic validation checks. */
     MA {
       @Override
       public VisionMeasurement getVisionMeasurement(PoseEstimate mt) {
         double xyStdDev = calculateXYStdDev(mt);
+        // MT2 measurements don't provide reliable rotation data
         double thetaStdDev = mt.isMegaTag2() ? Double.MAX_VALUE : calculateThetaStdDev(mt);
         return new VisionMeasurement(mt, VecBuilder.fill(xyStdDev, xyStdDev, thetaStdDev));
       }
@@ -52,10 +67,8 @@ public class VisionUtil {
             mt.poseEstimate().tagCount() == 1 && mt.poseEstimate().ambiguity() > MA_AMBIGUITY;
         boolean fieldCheck = fieldCheck(mt.poseEstimate().pose());
         boolean inValidSpeed = speedCheck(mt.poseEstimate().yawVelocityRadPerSec());
-        if (invalidTime || inValidSpeed || ambiguityThreshold || fieldCheck) {
-          return false;
-        }
-        return true;
+        // Reject if any validation checks fail
+        return invalidTime || inValidSpeed || ambiguityThreshold || fieldCheck;
       }
 
       private double calculateXYStdDev(PoseEstimate mt) {
@@ -67,6 +80,10 @@ public class VisionUtil {
       }
     },
 
+    /**
+     * Experimental vision mode with alternative validation checks and measurement calculations.
+     * Currently disabled.
+     */
     POOF {
       @Override
       public VisionMeasurement getVisionMeasurement(PoseEstimate mt) {
@@ -77,41 +94,45 @@ public class VisionUtil {
 
       @Override
       public boolean acceptVisionMeasurement(PoseObservation mt) {
-        //       final double kMinAreaMegatagEnabled = 0.05;
-        //       if (poseEstimate.avgTagArea < kMinAreaForMegatag) {
-        //         Logger.recordOutput(logPreface + "megaTagAvgTagArea", false);
-        //         return false;
-        //     }
-        //     if (poseEstimate.fiducialIds.length != kExpectedTagCount) {
-        //       Logger.recordOutput(logPreface + "fiducialLength", false);
-        //       return false;
-        //   }
-        //   if (fiducial.ambiguity > .9) {
-        //     Logger.recordOutput(logPreface + "Ambiguity", false);
-        //     return false;
-        // }
+        // TODO: Implement validation checks for POOF mode
         return false;
       }
 
       private double calculateXYStdDevNew(PoseEstimate mt) {
-        // Placeholder for New Mode XY StdDev calculation
+        // TODO: Implement POOF logic for XY standard deviation
         return Math.log(mt.avgTagDist() + 1) / mt.tagCount();
       }
 
       private double calculateThetaStdDevNew(PoseEstimate mt) {
-        // Placeholder for New Mode Theta StdDev calculation
+        // TODO: Implement POOF logic for theta standard deviation
         return Math.log(mt.avgTagDist() + 1) / mt.tagCount();
       }
     };
 
-    // Abstract methods to be implemented by each mode
+    /**
+     * Creates a vision measurement with calculated standard deviations.
+     *
+     * @param mt The pose estimate to process
+     * @return A vision measurement with appropriate standard deviations
+     */
     public abstract VisionMeasurement getVisionMeasurement(PoseEstimate mt);
 
+    /**
+     * Determines whether a vision measurement should be accepted.
+     *
+     * @param mt The pose observation to validate
+     * @return True if the measurement should be accepted
+     */
     public abstract boolean acceptVisionMeasurement(PoseObservation mt);
   }
 
+  /** Record containing a pose estimate and its associated standard deviations. */
   public record VisionMeasurement(PoseEstimate poseEstimate, Vector<N3> visionMeasurementStdDevs) {}
 
+  /**
+   * Record containing collections of vision measurements and poses, categorized by acceptance
+   * status.
+   */
   public record VisionData(
       List<VisionMeasurement> measurements,
       List<Pose3d> tagPoses,
@@ -121,7 +142,7 @@ public class VisionUtil {
       List<Pose3d> acceptedPoses,
       List<Pose3d> rejectedPoses) {
 
-    // Static factory method for creating empty VisionData
+    /** Creates an empty VisionData object. */
     public static VisionData empty() {
       return new VisionData(
           new ArrayList<>(),
@@ -133,14 +154,19 @@ public class VisionUtil {
           new ArrayList<>());
     }
 
-    // Helper method to merge two lists
+    /** Merges two lists of the same type. */
     private static <T> List<T> mergeLists(List<T> list1, List<T> list2) {
-      var merged = new ArrayList<T>(list1);
+      ArrayList<T> merged = new ArrayList<>(list1);
       merged.addAll(list2);
       return merged;
     }
 
-    // Method to combine two VisionData objects
+    /**
+     * Combines this VisionData with another, merging all corresponding lists.
+     *
+     * @param other The VisionData to merge with
+     * @return A new VisionData containing all elements from both objects
+     */
     public VisionData merge(VisionData other) {
       return new VisionData(
           mergeLists(measurements, other.measurements),
@@ -153,20 +179,25 @@ public class VisionUtil {
     }
   }
 
-  // Method to check if match hasn't started and we should be using MT1 to get starting pose
+  /** Checks if the robot is in the pre-match phase where only MT1 should be used. */
   private static boolean beforeMatch() {
-    return BEFORE_MATCH ? DriverStation.isEnabled() : BEFORE_MATCH;
+    if (DriverStation.isEnabled()) {
+      BEFORE_MATCH = false;
+    }
+    return BEFORE_MATCH && !DriverStation.isEnabled();
   }
 
+  /** Validates that a pose is within the field boundaries (plus margins). */
   private static boolean fieldCheck(Pose3d robotPose) {
-    return (robotPose.getX() < -FIELD_MARGIN
+    return robotPose.getX() < -FIELD_MARGIN
         || robotPose.getX() > FieldConstants.fieldLength + FIELD_MARGIN
         || robotPose.getY() < -FIELD_MARGIN
         || robotPose.getY() > FieldConstants.fieldWidth + FIELD_MARGIN
         || robotPose.getZ() < -Z_MARGIN
-        || robotPose.getZ() > Z_MARGIN);
+        || robotPose.getZ() > Z_MARGIN;
   }
 
+  /** Validates that the robot's rotation speed is within acceptable limits. */
   private static boolean speedCheck(double rotationSpeed) {
     return rotationSpeed > MT2_SPIN_MAX;
   }
