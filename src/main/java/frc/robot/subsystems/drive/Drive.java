@@ -13,6 +13,8 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
+import edu.wpi.first.wpilibj.Alert;
+import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -36,6 +38,8 @@ public class Drive extends SubsystemBase {
   private final DriveIOInputsAutoLogged inputs;
 
   private Module[] modules = new Module[4];
+
+  private final Alert gyroDisconnectedAlert;
 
   /* Blue alliance sees forward as 0 degrees (toward red alliance wall) */
   private static final Rotation2d kBlueAlliancePerspectiveRotation = Rotation2d.kZero;
@@ -126,6 +130,8 @@ public class Drive extends SubsystemBase {
     modules[2] = new Module(blModuleIO, 2);
     modules[3] = new Module(brModuleIO, 3);
 
+    gyroDisconnectedAlert = new Alert("Gyro Disconnected", AlertType.kError);
+
     configureAutoBuilder();
   }
 
@@ -205,6 +211,8 @@ public class Drive extends SubsystemBase {
 
     io.updateInputs(inputs);
     Logger.processInputs("Drive", inputs);
+
+    gyroDisconnectedAlert.set(!inputs.gyroConnected);
 
     for (Module module : modules) {
       module.periodic();

@@ -10,7 +10,6 @@ import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.units.measure.LinearVelocity;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 import frc.robot.commands.DriveCommands;
@@ -25,11 +24,14 @@ import frc.robot.subsystems.drive.requests.SwerveSetpointGen;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSIM;
+import frc.robot.utils.TunableController;
+import frc.robot.utils.TunableController.TunableControllerType;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 public class RobotContainer {
   private LinearVelocity MaxSpeed = TunerConstants.kSpeedAt12Volts;
-  private final CommandXboxController joystick = new CommandXboxController(0);
+  private final TunableController joystick =
+      new TunableController(0).withControllerType(TunableControllerType.QUADRATIC);
 
   private final LoggedDashboardChooser<Command> autoChooser;
 
@@ -154,13 +156,17 @@ public class RobotContainer {
                 drive
                     .withVelocityX(
                         MaxSpeed.times(
-                            -joystick.getLeftY())) // Drive forward with negative Y (forward)
+                            -joystick
+                                .customLeft()
+                                .getY())) // Drive forward with negative Y (forward)
                     .withVelocityY(
-                        MaxSpeed.times(-joystick.getLeftX())) // Drive left with negative X (left)
+                        MaxSpeed.times(
+                            -joystick.customLeft().getX())) // Drive left with negative X (left)
                     .withRotationalRate(
                         Constants.MaxAngularRate.times(
                             -joystick
-                                .getRightX())))); // Drive counterclockwise with negative X (left)
+                                .customRight()
+                                .getX())))); // Drive counterclockwise with negative X (left)
 
     joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
     joystick

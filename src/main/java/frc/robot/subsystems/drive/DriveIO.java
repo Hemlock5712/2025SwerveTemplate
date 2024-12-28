@@ -29,6 +29,7 @@ public interface DriveIO {
     public int failedDaqs = 0;
 
     public AngularVelocity gyroRate = RotationsPerSecond.of(0.0);
+    public boolean gyroConnected = false;
     public Rotation2d operatorForwardDirection = new Rotation2d();
     public boolean odometryIsValid = false;
 

@@ -40,7 +40,8 @@ public class VisionIOLimelight implements VisionIO {
   public void updateInputs(VisionIOInputs inputs) {
     // Update connection status based on whether an update has been seen in the last 250ms
     VisionParameters currentParams = this.visionParams.get();
-    inputs.connected = (RobotController.getFPGATime() - latencySubscriber.getLastChange()) < 250;
+    inputs.connected =
+        ((RobotController.getFPGATime() - latencySubscriber.getLastChange()) / 1000) < 250;
 
     LimelightHelpers.SetRobotOrientation(
         cameraName,

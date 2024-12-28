@@ -21,6 +21,7 @@ import frc.robot.LimelightHelpers.PoseEstimate;
 import frc.robot.LimelightHelpers.PoseObservation;
 import frc.robot.LimelightHelpers.RawFiducial;
 import frc.robot.subsystems.drive.Drive.VisionParameters;
+import frc.robot.utils.FieldConstants;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
@@ -54,20 +55,35 @@ public class VisionIOPhotonVision implements VisionIO {
     if (results.isEmpty()) return new PoseObservation();
 
     PhotonPipelineResult latestResult = results.get(results.size() - 1);
-    if (!latestResult.hasTargets() || latestResult.getMultiTagResult().isEmpty()) {
+    if (!latestResult.hasTargets()) {
       return new PoseObservation();
     }
-
-    var multitagResult = latestResult.getMultiTagResult().get();
-    Transform3d fieldToRobot = multitagResult.estimatedPose.best.plus(robotToCamera.inverse());
-    Pose3d robotPose = new Pose3d(fieldToRobot.getTranslation(), fieldToRobot.getRotation());
-
-    return buildPoseObservation(latestResult, robotPose);
+    var multitagResult = latestResult.getMultiTagResult();
+    if (multitagResult.isPresent()) {
+      Transform3d fieldToRobot =
+          multitagResult.get().estimatedPose.best.plus(robotToCamera.inverse());
+      Pose3d robotPose = new Pose3d(fieldToRobot.getTranslation(), fieldToRobot.getRotation());
+      return buildPoseObservation(latestResult, robotPose);
+    }
+    var target = latestResult.targets.get(0);
+    // Calculate robot pose
+    var tagPose = FieldConstants.aprilTags.getTagPose(target.fiducialId);
+    if (tagPose.isPresent()) {
+      Transform3d fieldToTarget =
+          new Transform3d(tagPose.get().getTranslation(), tagPose.get().getRotation());
+      Transform3d cameraToTarget = target.bestCameraToTarget;
+      Transform3d fieldToCamera = fieldToTarget.plus(cameraToTarget.inverse());
+      Transform3d fieldToRobot = fieldToCamera.plus(robotToCamera.inverse());
+      Pose3d robotPose = new Pose3d(fieldToRobot.getTranslation(), fieldToRobot.getRotation());
+      return buildPoseObservation(latestResult, robotPose);
+    }
+    return new PoseObservation();
   }
 
   private PoseObservation buildPoseObservation(PhotonPipelineResult result, Pose3d robotPose) {
     List<RawFiducial> rawFiducialsList = new ArrayList<>();
-    double totalDistance = 0.0, totalArea = 0.0;
+    double totalDistance = 0.0;
+    double totalArea = 0.0;
 
     for (var target : result.targets) {
       totalDistance += target.bestCameraToTarget.getTranslation().getNorm();
