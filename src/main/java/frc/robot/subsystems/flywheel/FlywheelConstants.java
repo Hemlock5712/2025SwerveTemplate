@@ -20,9 +20,11 @@ public class FlywheelConstants {
   public static final Gains gains =
       switch (Constants.currentMode) {
         case REAL -> new Gains(0.18, 0, 0.0006, 0.38367, 0.00108, 0);
-        case SIM -> new Gains(0.05, 0.0, 0.0, 0.01, 0.00103, 0.0);
+        case SIM -> new Gains(1, 0.0, 0.0, 0.01, 0.0, 0.0);
         case REPLAY -> new Gains(0.18, 0, 0.0006, 0.38367, 0.00108, 0);
       };
+
+  public static final double FLYWHEEL_SETPOINT_TOLERANCE_RPM = 100;
 
   public record FlywheelConfig(int motorID, double reduction, double maxAccelerationRpmPerSec) {}
 

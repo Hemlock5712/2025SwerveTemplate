@@ -10,6 +10,7 @@ import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.units.measure.LinearVelocity;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
@@ -22,6 +23,9 @@ import frc.robot.subsystems.drive.module.ModuleIO;
 import frc.robot.subsystems.drive.module.ModuleIOCTRE;
 import frc.robot.subsystems.drive.requests.ProfiledFieldCentricFacingAngle;
 import frc.robot.subsystems.drive.requests.SwerveSetpointGen;
+import frc.robot.subsystems.flywheel.Flywheel;
+import frc.robot.subsystems.flywheel.FlywheelIO;
+import frc.robot.subsystems.flywheel.FlywheelIOCTRE;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOLimelight;
@@ -35,6 +39,7 @@ public class RobotContainer {
   private final LoggedDashboardChooser<Command> autoChooser;
 
   public final Drive drivetrain;
+  public final Flywheel flywheel;
 
   // CTRE Default Drive Request
   private final SwerveRequest.FieldCentric drive =
@@ -66,6 +71,8 @@ public class RobotContainer {
             new VisionIOLimelight("limelight-fr", drivetrain::getVisionParameters),
             new VisionIOLimelight("limelight-bl", drivetrain::getVisionParameters),
             new VisionIOLimelight("limelight-br", drivetrain::getVisionParameters));
+
+        flywheel = new Flywheel(new FlywheelIOCTRE());
         break;
 
       case SIM:
@@ -104,6 +111,8 @@ public class RobotContainer {
                     new Translation3d(0.0, -0.2, 0.8),
                     new Rotation3d(0, Math.toRadians(20), Math.toRadians(-90))),
                 drivetrain::getVisionParameters));
+
+        flywheel = new Flywheel(new FlywheelIOCTRE());
         break;
 
       default:
@@ -122,6 +131,8 @@ public class RobotContainer {
             new VisionIO() {},
             new VisionIO() {},
             new VisionIO() {});
+
+        flywheel = new Flywheel(new FlywheelIO() {});
         break;
     }
 
@@ -233,6 +244,10 @@ public class RobotContainer {
 
     // reset the field-centric heading on left bumper press
     // joystick.leftBumper().onTrue(drivetrain.runOnce(drivetrain::seedFieldCentric));
+    joystick
+        .leftBumper()
+        .whileTrue(
+            Commands.startEnd(() -> flywheel.requestLow(), () -> flywheel.requestIdle(), flywheel));
   }
 
   public Command getAutonomousCommand() {

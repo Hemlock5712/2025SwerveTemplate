@@ -29,6 +29,9 @@ public class FlywheelIOCTRE implements FlywheelIO {
   // Hardware
   private final TalonFX flywheelTalon;
 
+  /* Setpoints */
+  private double desiredRPM = 0.0;
+
   // Status Signals
   private final StatusSignal<Angle> flywheelPosition;
   private final StatusSignal<AngularVelocity> flywheelVelocity;
@@ -106,6 +109,7 @@ public class FlywheelIOCTRE implements FlywheelIO {
     inputs.flywheelSupplyCurrentAmps = flywheelSupplyCurrentAmps.getValue();
     inputs.flywheelTorqueCurrentAmps = flywheelTorqueCurrentAmps.getValue();
     inputs.flywheelTempCelsius = flywheelTempCelsius.getValue();
+    inputs.flywheelSetpointRpm = desiredRPM;
   }
 
   @Override
@@ -119,9 +123,15 @@ public class FlywheelIOCTRE implements FlywheelIO {
   }
 
   @Override
-  public void runVelocity(double flywheelRpm, double flywheelFeedforward) {
-    flywheelTalon.setControl(
-        velocityControl.withVelocity(flywheelRpm / 60.0).withFeedForward(flywheelFeedforward));
+  public void setVelocity(double flywheelRpm) {
+    desiredRPM = flywheelRpm;
+
+    if (flywheelRpm > 0.0) {
+      flywheelTalon.setControl(
+          velocityControl.withVelocity(flywheelRpm / 60.0).withSlot(0).withEnableFOC(true));
+    } else {
+      flywheelTalon.setControl(neutralControl);
+    }
   }
 
   @Override
