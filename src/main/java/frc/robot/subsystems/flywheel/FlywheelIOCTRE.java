@@ -26,13 +26,13 @@ import edu.wpi.first.units.measure.Temperature;
 import edu.wpi.first.units.measure.Voltage;
 
 public class FlywheelIOCTRE implements FlywheelIO {
-  // Hardware
+  /* Hardware */
   private final TalonFX flywheelTalon;
 
   /* Setpoints */
   private double desiredRPM = 0.0;
 
-  // Status Signals
+  /* Status Signals */
   private final StatusSignal<Angle> flywheelPosition;
   private final StatusSignal<AngularVelocity> flywheelVelocity;
   private final StatusSignal<Voltage> flywheelAppliedVolts;
@@ -40,7 +40,7 @@ public class FlywheelIOCTRE implements FlywheelIO {
   private final StatusSignal<Current> flywheelTorqueCurrentAmps;
   private final StatusSignal<Temperature> flywheelTempCelsius;
 
-  // Control
+  /* Control */
   private final Slot0Configs controllerConfig = new Slot0Configs();
   private final VoltageOut voltageControl = new VoltageOut(0).withUpdateFreqHz(0.0);
   private final VelocityVoltage velocityControl = new VelocityVoltage(0).withUpdateFreqHz(0.0);

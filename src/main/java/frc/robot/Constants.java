@@ -38,6 +38,8 @@ import frc.robot.generated.TunerConstants;
  */
 public final class Constants {
 
+  public static final double loopPeriodSecs = 0.02;
+
   public static final Mode simMode = Mode.SIM;
 
   public static final AngularVelocity MaxAngularRate = RotationsPerSecond.of(0.75);

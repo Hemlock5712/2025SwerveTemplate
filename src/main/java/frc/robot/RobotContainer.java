@@ -26,6 +26,7 @@ import frc.robot.subsystems.drive.requests.SwerveSetpointGen;
 import frc.robot.subsystems.flywheel.Flywheel;
 import frc.robot.subsystems.flywheel.FlywheelIO;
 import frc.robot.subsystems.flywheel.FlywheelIOCTRE;
+import frc.robot.subsystems.flywheel.FlywheelIOSim;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOLimelight;
@@ -112,7 +113,7 @@ public class RobotContainer {
                     new Rotation3d(0, Math.toRadians(20), Math.toRadians(-90))),
                 drivetrain::getVisionParameters));
 
-        flywheel = new Flywheel(new FlywheelIOCTRE());
+        flywheel = new Flywheel(new FlywheelIOSim());
         break;
 
       default:
