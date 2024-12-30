@@ -17,6 +17,7 @@ import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.units.measure.Voltage;
 import edu.wpi.first.wpilibj.simulation.FlywheelSim;
 import frc.robot.Constants;
 
@@ -77,7 +78,7 @@ public class FlywheelIOSim implements FlywheelIO {
   }
 
   @Override
-  public void runCharacterizationFlywheel(double input) {
-    runVolts(input);
+  public void runCharacterizationFlywheel(Voltage input) {
+    runVolts(input.abs(Volts));
   }
 }

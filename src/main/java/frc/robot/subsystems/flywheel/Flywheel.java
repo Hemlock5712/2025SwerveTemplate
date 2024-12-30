@@ -1,12 +1,15 @@
 package frc.robot.subsystems.flywheel;
 
 import static edu.wpi.first.units.Units.RPM;
+import static edu.wpi.first.units.Units.Volts;
 import static frc.robot.subsystems.flywheel.FlywheelConstants.*;
 
+import edu.wpi.first.units.measure.Voltage;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
-import edu.wpi.first.wpilibj.RobotController;
+import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import org.littletonrobotics.junction.Logger;
 
 public class Flywheel extends SubsystemBase {
@@ -23,8 +26,6 @@ public class Flywheel extends SubsystemBase {
   private boolean requestMedium = false;
   private boolean requestHigh = false;
 
-  private double stateStartTime = 0.0;
-
   /* Setpoints */
   private double desiredRPM = 0.0;
 
@@ -36,10 +37,46 @@ public class Flywheel extends SubsystemBase {
     HIGH
   }
 
+  /* SysId routine for characterizing rotation. This is used to find PID gains for the flywheel motors. */
+  private final SysIdRoutine m_sysIDRoutineRotation =
+      new SysIdRoutine(
+          new SysIdRoutine.Config(
+              null, // Use default ramp rate (1 V/s)
+              Volts.of(1), // Reduce dynamic step voltage to 1 V to prevent brownout
+              null, // Use default timeout (10 s)
+              // Log state with Logger class
+              state -> Logger.recordOutput("SysIdRotation_State", state.toString())),
+          new SysIdRoutine.Mechanism(output -> runCharacterization(output), null, this));
+
+  /* The SysId routine to test */
+  private SysIdRoutine m_sysIdRoutineToApply = m_sysIDRoutineRotation;
+
   public Flywheel(FlywheelIO io) {
     System.out.println("[Init] Creating Flywheel");
     this.io = io;
     flywheelDisconnectedAlert = new Alert("Disconnected flywheel motor", AlertType.kError);
+  }
+
+  /**
+   * Runs the SysId Quasistatic test in the given direction for the routine specified by {@link
+   * #m_sysIdRoutineToApply}.
+   *
+   * @param direction Direction of the SysId Quasistatic test
+   * @return Command to run
+   */
+  public Command sysIdQuasistatic(SysIdRoutine.Direction direction) {
+    return m_sysIdRoutineToApply.quasistatic(direction);
+  }
+
+  /**
+   * Runs the SysId Dynamic test in the given direction for the routine specified by {@link
+   * #m_sysIdRoutineToApply}.
+   *
+   * @param direction Direction of the SysId Dynamic test
+   * @return Command to run
+   */
+  public Command sysIdDynamic(SysIdRoutine.Direction direction) {
+    return m_sysIdRoutineToApply.dynamic(direction);
   }
 
   @Override
@@ -84,7 +121,6 @@ public class Flywheel extends SubsystemBase {
       }
     }
     if (nextSystemState != systemState) {
-      stateStartTime = RobotController.getFPGATime() / 1.0E6;
       systemState = nextSystemState;
     }
   }
@@ -93,6 +129,14 @@ public class Flywheel extends SubsystemBase {
     Logger.recordOutput("Flywheel/RPM error", desiredRPM - inputs.flywheelVelocityRpm.abs(RPM));
     return Math.abs(desiredRPM - inputs.flywheelVelocityRpm.abs(RPM))
         < FLYWHEEL_SETPOINT_TOLERANCE_RPM;
+  }
+
+  public void setVelocity(double velocity) {
+    io.setVelocity(velocity);
+  }
+
+  public void runCharacterization(Voltage input) {
+    io.runCharacterizationFlywheel(input);
   }
 
   public void requestIdle() {

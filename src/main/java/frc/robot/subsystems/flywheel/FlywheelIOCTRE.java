@@ -7,6 +7,7 @@
 
 package frc.robot.subsystems.flywheel;
 
+import static edu.wpi.first.units.Units.Volts;
 import static frc.robot.subsystems.flywheel.FlywheelConstants.*;
 
 import com.ctre.phoenix6.BaseStatusSignal;
@@ -143,7 +144,7 @@ public class FlywheelIOCTRE implements FlywheelIO {
   }
 
   @Override
-  public void runCharacterizationFlywheel(double input) {
-    flywheelTalon.setControl(voltageControl.withOutput(input));
+  public void runCharacterizationFlywheel(Voltage input) {
+    flywheelTalon.setControl(voltageControl.withOutput(input.abs(Volts)));
   }
 }

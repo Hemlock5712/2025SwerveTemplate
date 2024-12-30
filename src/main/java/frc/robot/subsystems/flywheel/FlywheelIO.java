@@ -46,5 +46,5 @@ public interface FlywheelIO {
   default void setFF(double kS, double kV, double kA) {}
 
   /** Run flywheel at voltage */
-  default void runCharacterizationFlywheel(double input) {}
+  default void runCharacterizationFlywheel(Voltage input) {}
 }
