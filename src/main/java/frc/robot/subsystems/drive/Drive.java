@@ -2,15 +2,20 @@ package frc.robot.subsystems.drive;
 
 import static edu.wpi.first.units.Units.*;
 
-import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
+import edu.wpi.first.math.Matrix;
+import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
+import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
+import edu.wpi.first.math.numbers.N1;
+import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.Alert;
@@ -19,10 +24,10 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.Constants;
-import frc.robot.subsystems.drive.module.Module;
-import frc.robot.subsystems.drive.module.ModuleIO;
+import frc.robot.Constants.Mode;
 import frc.robot.subsystems.vision.VisionUtil.VisionMeasurement;
 import java.util.List;
 import java.util.function.Supplier;
@@ -36,10 +41,32 @@ import org.littletonrobotics.junction.Logger;
 public class Drive extends SubsystemBase {
   private final DriveIO io;
   private final DriveIOInputsAutoLogged inputs;
+  private final ModuleIOInputsAutoLogged[] modules =
+      new ModuleIOInputsAutoLogged[] {
+        new ModuleIOInputsAutoLogged(),
+        new ModuleIOInputsAutoLogged(),
+        new ModuleIOInputsAutoLogged(),
+        new ModuleIOInputsAutoLogged()
+      };
 
-  private Module[] modules = new Module[4];
+  private final SwerveDriveKinematics kinematics =
+      new SwerveDriveKinematics(Constants.SWERVE_MODULE_OFFSETS);
+  private SwerveDrivePoseEstimator poseEstimator = null;
+  private Trigger estimatorTrigger =
+      new Trigger(() -> poseEstimator != null).and(() -> Constants.currentMode == Mode.REPLAY);
+  private SwerveModulePosition[] currentPositions =
+      new SwerveModulePosition[] {
+        new SwerveModulePosition(),
+        new SwerveModulePosition(),
+        new SwerveModulePosition(),
+        new SwerveModulePosition()
+      };
 
-  private final Alert gyroDisconnectedAlert;
+  private Alert[] driveDisconnectedAlert = new Alert[4];
+  private Alert[] turnDisconnectedAlert = new Alert[4];
+  private Alert[] turnEncoderDisconnectedAlert = new Alert[4];
+
+  private Alert gyroDisconnectedAlert;
 
   /* Blue alliance sees forward as 0 degrees (toward red alliance wall) */
   private static final Rotation2d kBlueAlliancePerspectiveRotation = Rotation2d.kZero;
@@ -115,24 +142,29 @@ public class Drive extends SubsystemBase {
   /* The SysId routine to test */
   private final SysIdRoutine m_sysIdRoutineToApply = m_sysIdRoutineTranslation;
 
-  public Drive(
-      DriveIO io,
-      ModuleIO flModuleIO,
-      ModuleIO frModuleIO,
-      ModuleIO blModuleIO,
-      ModuleIO brModuleIO) {
+  public Drive(DriveIO io) {
 
     this.io = io;
     inputs = new DriveIOInputsAutoLogged();
 
-    modules[0] = new Module(flModuleIO, 0);
-    modules[1] = new Module(frModuleIO, 1);
-    modules[2] = new Module(blModuleIO, 2);
-    modules[3] = new Module(brModuleIO, 3);
+    configureAlerts();
+    configureAutoBuilder();
+  }
 
+  private void configureAlerts() {
     gyroDisconnectedAlert = new Alert("Gyro Disconnected", AlertType.kError);
 
-    configureAutoBuilder();
+    for (int i = 0; i < modules.length; i++) {
+      driveDisconnectedAlert[i] =
+          new Alert(
+              "Disconnected drive motor on module " + Integer.toString(i) + ".", AlertType.kError);
+      turnDisconnectedAlert[i] =
+          new Alert(
+              "Disconnected turn motor on module " + Integer.toString(i) + ".", AlertType.kError);
+      turnEncoderDisconnectedAlert[i] =
+          new Alert(
+              "Disconnected turn encoder on module " + Integer.toString(i) + ".", AlertType.kError);
+    }
   }
 
   private void configureAutoBuilder() {
@@ -211,11 +243,14 @@ public class Drive extends SubsystemBase {
 
     io.updateInputs(inputs);
     Logger.processInputs("Drive", inputs);
-
     gyroDisconnectedAlert.set(!inputs.gyroConnected);
 
-    for (Module module : modules) {
-      module.periodic();
+    io.updateModules(modules);
+    for (int i = 0; i < modules.length; i++) {
+      Logger.processInputs("Module" + i, modules[i]);
+      driveDisconnectedAlert[i].set(!modules[i].driveConnected);
+      turnDisconnectedAlert[i].set(!modules[i].turnConnected);
+      turnEncoderDisconnectedAlert[i].set(!modules[i].turnEncoderConnected);
     }
 
     if (!m_hasAppliedOperatorPerspective || DriverStation.isDisabled()) {
@@ -229,19 +264,22 @@ public class Drive extends SubsystemBase {
                 m_hasAppliedOperatorPerspective = true;
               });
     }
-  }
-
-  public Command seedFieldCentric() {
-    return runOnce(io::seedFieldCentric);
+    updateWithTime();
   }
 
   public void resetPose(Pose2d pose) {
+    if (estimatorTrigger.getAsBoolean()) {
+      poseEstimator.resetPose(pose);
+    }
     io.resetPose(pose);
   }
 
   /** Returns the current odometry pose. */
   @AutoLogOutput(key = "Odometry/Robot")
   public Pose2d getPose() {
+    if (estimatorTrigger.getAsBoolean()) {
+      return poseEstimator.getEstimatedPosition();
+    }
     return inputs.pose;
   }
 
@@ -260,7 +298,7 @@ public class Drive extends SubsystemBase {
   public Angle[] getDrivePositions() {
     Angle[] values = new Angle[4];
     for (int i = 0; i < 4; i++) {
-      values[i] = modules[i].getDrivePosition();
+      values[i] = modules[i].drivePosition;
     }
     return values;
   }
@@ -268,29 +306,17 @@ public class Drive extends SubsystemBase {
   /** Returns the module states (turn angles and drive velocities) for all of the modules. */
   @AutoLogOutput(key = "SwerveStates/Measured")
   public SwerveModuleState[] getModuleStates() {
-    if (inputs.successfulDaqs == 0) {
-      return new SwerveModuleState[] {
-        new SwerveModuleState(),
-        new SwerveModuleState(),
-        new SwerveModuleState(),
-        new SwerveModuleState()
-      };
-    }
     return inputs.moduleStates;
   }
 
   /** Returns the module target states (turn angles and drive velocities) for all of the modules. */
   @AutoLogOutput(key = "SwerveStates/Setpoints")
   public SwerveModuleState[] getModuleTarget() {
-    if (inputs.successfulDaqs == 0) {
-      return new SwerveModuleState[] {
-        new SwerveModuleState(),
-        new SwerveModuleState(),
-        new SwerveModuleState(),
-        new SwerveModuleState()
-      };
-    }
     return inputs.moduleTargets;
+  }
+
+  public SwerveModulePosition[] getModulePositions() {
+    return inputs.modulePositions;
   }
 
   /** Returns the measured chassis speeds of the robot. */
@@ -306,9 +332,28 @@ public class Drive extends SubsystemBase {
    * @return The pose at the given timestamp (or current pose if the buffer is empty).
    */
   public Pose2d samplePoseAt(double timestampSeconds) {
-    io.samplePoseAt(inputs, Utils.fpgaToCurrentTime(timestampSeconds));
-    Logger.processInputs("Drive", inputs);
-    return inputs.samplePose;
+    return estimatorTrigger.getAsBoolean()
+        ? poseEstimator.sampleAt(timestampSeconds).orElse(getPose())
+        : io.samplePoseAt(timestampSeconds).orElse(getPose());
+  }
+
+  /**
+   * Adds a vision measurement to the pose estimator.
+   *
+   * @param visionRobotPoseMeters The measured robot pose from vision
+   * @param timestampSeconds The timestamp of the measurement
+   * @param visionMeasurementStdDevs Standard deviation matrix for the measurement
+   */
+  public void addVisionMeasurement(
+      Pose2d visionRobotPoseMeters,
+      double timestampSeconds,
+      Matrix<N3, N1> visionMeasurementStdDevs) {
+    if (estimatorTrigger.getAsBoolean()) {
+      poseEstimator.addVisionMeasurement(
+          visionRobotPoseMeters, timestampSeconds, visionMeasurementStdDevs);
+    } else {
+      io.addVisionMeasurement(visionRobotPoseMeters, timestampSeconds, visionMeasurementStdDevs);
+    }
   }
 
   /**
@@ -318,9 +363,9 @@ public class Drive extends SubsystemBase {
    * @param timestamp The timestamp of the vision measurement in seconds.
    */
   public void addVisionMeasurement(VisionMeasurement visionMeasurement) {
-    io.addVisionMeasurement(
+    this.addVisionMeasurement(
         visionMeasurement.poseEstimate().pose().toPose2d(),
-        Utils.fpgaToCurrentTime(visionMeasurement.poseEstimate().timestampSeconds()),
+        visionMeasurement.poseEstimate().timestampSeconds(),
         visionMeasurement.visionMeasurementStdDevs());
   }
 
@@ -333,4 +378,29 @@ public class Drive extends SubsystemBase {
   }
 
   public record VisionParameters(Pose2d robotPose, AngularVelocity gyroRate) {}
+
+  public void updateWithTime() {
+    if (Constants.currentMode != Mode.REPLAY || !inputs.odometryIsValid) {
+      return;
+    }
+
+    if (!estimatorTrigger.getAsBoolean()) {
+      poseEstimator =
+          new SwerveDrivePoseEstimator(
+              kinematics, inputs.pose.getRotation(), inputs.modulePositions, inputs.pose);
+    }
+
+    for (int timeIndex = 0; timeIndex < inputs.timestamp.length; timeIndex++) {
+      updateModulePositions(timeIndex);
+      poseEstimator.updateWithTime(
+          inputs.timestamp[timeIndex], inputs.gyroYaw[timeIndex], currentPositions);
+    }
+  }
+
+  private void updateModulePositions(int timeIndex) {
+    for (int moduleIndex = 0; moduleIndex < currentPositions.length; moduleIndex++) {
+      currentPositions[moduleIndex].distanceMeters = inputs.drivePositions[moduleIndex][timeIndex];
+      currentPositions[moduleIndex].angle = inputs.steerPositions[moduleIndex][timeIndex];
+    }
+  }
 }

@@ -22,7 +22,7 @@ public class DriveCommands extends Command {
 
   /** Measures the robot's wheel radius by spinning in a circle. */
   public static Command wheelRadiusCharacterization(Drive drive) {
-    SlewRateLimiter limiter = new SlewRateLimiter(0.05);
+    SlewRateLimiter limiter = new SlewRateLimiter(0.1);
     WheelRadiusCharacterizationState state = new WheelRadiusCharacterizationState();
     SwerveRequest.RobotCentric req =
         new SwerveRequest.RobotCentric()
@@ -43,7 +43,7 @@ public class DriveCommands extends Command {
             // Turn in place, accelerating up to full speed
             Commands.run(
                 () -> {
-                  double speed = limiter.calculate(0.25);
+                  double speed = limiter.calculate(6);
                   drive.setControl(req.withRotationalRate(speed));
                 },
                 drive)),

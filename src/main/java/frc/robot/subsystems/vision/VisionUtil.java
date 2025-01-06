@@ -199,6 +199,6 @@ public class VisionUtil {
 
   /** Validates that the robot's rotation speed is within acceptable limits. */
   private static boolean speedCheck(double rotationSpeed) {
-    return rotationSpeed > MT2_SPIN_MAX;
+    return Math.abs(rotationSpeed) > MT2_SPIN_MAX;
   }
 }

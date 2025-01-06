@@ -17,6 +17,7 @@ import static edu.wpi.first.units.Units.DegreesPerSecond;
 
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Transform3d;
+import frc.robot.Constants;
 import frc.robot.LimelightHelpers.PoseEstimate;
 import frc.robot.LimelightHelpers.PoseObservation;
 import frc.robot.LimelightHelpers.RawFiducial;
@@ -68,7 +69,7 @@ public class VisionIOPhotonVision implements VisionIO {
     var target = latestResult.targets.get(0);
     // Calculate robot pose
     var tagPose = FieldConstants.aprilTags.getTagPose(target.fiducialId);
-    if (tagPose.isPresent()) {
+    if (tagPose.isPresent() && Constants.currentMode != Constants.Mode.SIM) {
       Transform3d fieldToTarget =
           new Transform3d(tagPose.get().getTranslation(), tagPose.get().getRotation());
       Transform3d cameraToTarget = target.bestCameraToTarget;

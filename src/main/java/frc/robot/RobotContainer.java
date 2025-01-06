@@ -3,6 +3,7 @@ package frc.robot;
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 import com.pathplanner.lib.auto.AutoBuilder;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
@@ -10,6 +11,7 @@ import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.units.measure.LinearVelocity;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 import frc.robot.commands.DriveCommands;
@@ -17,8 +19,6 @@ import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveIO;
 import frc.robot.subsystems.drive.DriveIOCTRE;
-import frc.robot.subsystems.drive.module.ModuleIO;
-import frc.robot.subsystems.drive.module.ModuleIOCTRE;
 import frc.robot.subsystems.drive.requests.ProfiledFieldCentricFacingAngle;
 import frc.robot.subsystems.drive.requests.SwerveSetpointGen;
 import frc.robot.subsystems.vision.Vision;
@@ -53,13 +53,7 @@ public class RobotContainer {
     switch (Constants.currentMode) {
       case REAL:
         // Real robot, instantiate hardware IO implementations
-        drivetrain =
-            new Drive(
-                currentDriveTrain,
-                new ModuleIOCTRE(currentDriveTrain.getModule(0)),
-                new ModuleIOCTRE(currentDriveTrain.getModule(1)),
-                new ModuleIOCTRE(currentDriveTrain.getModule(2)),
-                new ModuleIOCTRE(currentDriveTrain.getModule(3)));
+        drivetrain = new Drive(currentDriveTrain);
 
         //        new Vision(
         //            drivetrain::addVisionData,
@@ -71,13 +65,7 @@ public class RobotContainer {
 
       case SIM:
         // Sim robot, instantiate physics sim IO implementations
-        drivetrain =
-            new Drive(
-                currentDriveTrain,
-                new ModuleIOCTRE(currentDriveTrain.getModule(0)),
-                new ModuleIOCTRE(currentDriveTrain.getModule(1)),
-                new ModuleIOCTRE(currentDriveTrain.getModule(2)),
-                new ModuleIOCTRE(currentDriveTrain.getModule(3)));
+        drivetrain = new Drive(currentDriveTrain);
 
         new Vision(
             drivetrain::addVisionData,
@@ -109,13 +97,7 @@ public class RobotContainer {
 
       default:
         // Replayed robot, disable IO implementations
-        drivetrain =
-            new Drive(
-                new DriveIO() {},
-                new ModuleIO() {},
-                new ModuleIO() {},
-                new ModuleIO() {},
-                new ModuleIO() {});
+        drivetrain = new Drive(new DriveIO() {});
 
         new Vision(
             drivetrain::addVisionData,
@@ -168,7 +150,7 @@ public class RobotContainer {
                                 .customRight()
                                 .getX())))); // Drive counterclockwise with negative X (left)
 
-    joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
+    joystick.a().onTrue(Commands.runOnce(() -> drivetrain.resetPose(Pose2d.kZero)));
     joystick
         .b()
         .whileTrue(
@@ -177,8 +159,9 @@ public class RobotContainer {
                     point.withModuleDirection(
                         new Rotation2d(-joystick.getLeftY(), -joystick.getLeftX()))));
 
-    // Custom Swerve Request that use PathPlanner Setpoint Generator. You will need to tune
-    // PP_CONFIG first
+    // Custom Swerve Request that use PathPlanner Setpoint Generator. Tuning NEEDED. Instructions
+    // can be found here
+    // https://hemlock5712.github.io/Swerve-Setup/talonfx-swerve-tuning.html
     SwerveSetpointGen setpointGen =
         new SwerveSetpointGen(
                 drivetrain.getChassisSpeeds(),

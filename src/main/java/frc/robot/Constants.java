@@ -46,10 +46,11 @@ public final class Constants {
 
   // PathPlanner config constants
   private static final Mass ROBOT_MASS = Kilogram.of(69.78);
+  // 15.2
   private static final MomentOfInertia ROBOT_MOI = KilogramSquareMeters.of(6.0);
   private static final double WHEEL_COF = 1.9;
   public static final SwerveModuleConstants SWERVE_MODULE_CONSTANTS = TunerConstants.FrontLeft;
-  private static final Translation2d[] SWERVE_MODULE_OFFSETS =
+  public static final Translation2d[] SWERVE_MODULE_OFFSETS =
       new Translation2d[] {
         new Translation2d(TunerConstants.FrontLeft.LocationX, TunerConstants.FrontLeft.LocationY),
         new Translation2d(TunerConstants.FrontRight.LocationX, TunerConstants.FrontRight.LocationY),
