@@ -6,6 +6,7 @@ package frc.robot.subsystems.drive;
 
 import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.Radians;
+import static edu.wpi.first.units.Units.Rotations;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 import static edu.wpi.first.units.Units.Volt;
 
@@ -59,7 +60,7 @@ public interface DriveIO {
     // Position and motion state
     public Pose2d pose = Pose2d.kZero;
     public ChassisSpeeds speeds = new ChassisSpeeds();
-    public Rotation2d operatorForwardDirection = new Rotation2d();
+    public Rotation2d operatorForwardDirection = Rotation2d.kZero;
 
     // Diagnostic data
     public double odometryPeriod = 0.0;
@@ -89,8 +90,8 @@ public interface DriveIO {
 
     public boolean turnConnected = false;
     public boolean turnEncoderConnected = false;
-    public Rotation2d turnAbsolutePosition = new Rotation2d();
-    public Rotation2d turnPosition = new Rotation2d();
+    public Angle turnAbsolutePosition = Rotations.of(0.0);
+    public Angle turnPosition = Rotations.of(0.0);
     public AngularVelocity turnVelocity = RotationsPerSecond.of(0.0);
     public Voltage turnAppliedVolts = Volt.of(0.0);
     public Current turnStatorCurrent = Amps.of(0.0);

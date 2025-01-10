@@ -6,7 +6,8 @@ package frc.robot.subsystems.drive;
 
 import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.hardware.CANcoder;
-import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.hardware.ParentDevice;
+import com.ctre.phoenix6.hardware.traits.CommonTalon;
 import com.ctre.phoenix6.swerve.SwerveDrivetrain;
 import com.ctre.phoenix6.swerve.SwerveDrivetrainConstants;
 import com.ctre.phoenix6.swerve.SwerveModule;
@@ -36,7 +37,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * <p>This class handles: - Odometry data collection and buffering - Vision measurement integration
  * - Simulation state updates - Thread-safe telemetry updates
  */
-public class DriveIOCTRE extends SwerveDrivetrain implements DriveIO {
+public class DriveIOCTRE extends SwerveDrivetrain<CommonTalon, CommonTalon, ParentDevice>
+    implements DriveIO {
   // Simulation constants
   private static final double SIMULATION_LOOP_PERIOD = 0.005; // 5 ms
   private Notifier simulationNotifier;
@@ -60,10 +62,17 @@ public class DriveIOCTRE extends SwerveDrivetrain implements DriveIO {
    * @param modules Array of constants for each swerve module
    */
   public DriveIOCTRE(
-      SwerveDrivetrainConstants driveTrainConstants,
-      double odometryUpdateFrequency,
-      SwerveModuleConstants... modules) {
-    super(driveTrainConstants, odometryUpdateFrequency, modules);
+      DeviceConstructor<CommonTalon> driveMotorConstructor,
+      DeviceConstructor<CommonTalon> steerMotorConstructor,
+      DeviceConstructor<ParentDevice> encoderConstructor,
+      SwerveDrivetrainConstants drivetrainConstants,
+      SwerveModuleConstants<?, ?, ?>... modules) {
+    super(
+        driveMotorConstructor,
+        steerMotorConstructor,
+        encoderConstructor,
+        drivetrainConstants,
+        modules);
     setup();
   }
 
@@ -74,18 +83,35 @@ public class DriveIOCTRE extends SwerveDrivetrain implements DriveIO {
    * @param modules Array of constants for each swerve module
    */
   public DriveIOCTRE(
-      SwerveDrivetrainConstants driveTrainConstants, SwerveModuleConstants... modules) {
-    super(driveTrainConstants, modules);
+      DeviceConstructor<CommonTalon> driveMotorConstructor,
+      DeviceConstructor<CommonTalon> steerMotorConstructor,
+      DeviceConstructor<ParentDevice> encoderConstructor,
+      SwerveDrivetrainConstants drivetrainConstants,
+      double odometryUpdateFrequency,
+      SwerveModuleConstants<?, ?, ?>... modules) {
+    super(
+        driveMotorConstructor,
+        steerMotorConstructor,
+        encoderConstructor,
+        drivetrainConstants,
+        odometryUpdateFrequency,
+        modules);
     setup();
   }
 
   public DriveIOCTRE(
+      DeviceConstructor<CommonTalon> driveMotorConstructor,
+      DeviceConstructor<CommonTalon> steerMotorConstructor,
+      DeviceConstructor<ParentDevice> encoderConstructor,
       SwerveDrivetrainConstants drivetrainConstants,
       double odometryUpdateFrequency,
       Matrix<N3, N1> odometryStandardDeviation,
       Matrix<N3, N1> visionStandardDeviation,
-      SwerveModuleConstants... modules) {
+      SwerveModuleConstants<?, ?, ?>... modules) {
     super(
+        driveMotorConstructor,
+        steerMotorConstructor,
+        encoderConstructor,
         drivetrainConstants,
         odometryUpdateFrequency,
         odometryStandardDeviation,
@@ -231,13 +257,14 @@ public class DriveIOCTRE extends SwerveDrivetrain implements DriveIO {
     }
   }
 
-  private ModuleIOInputs updateModule(ModuleIOInputs inputs, SwerveModule module) {
+  private ModuleIOInputs updateModule(
+      ModuleIOInputs inputs, SwerveModule<CommonTalon, CommonTalon, ParentDevice> module) {
     // Get hardware objects
-    TalonFX driveTalon = module.getDriveMotor();
-    TalonFX turnTalon = module.getSteerMotor();
-    CANcoder cancoder = module.getCANcoder();
+    CommonTalon driveTalon = module.getDriveMotor();
+    CommonTalon turnTalon = module.getSteerMotor();
+    CANcoder cancoder = (CANcoder) module.getEncoder();
 
-    inputs.driveConnected = driveTalon.isConnected();
+    inputs.driveConnected = driveTalon.getConnectedMotor().hasUpdated();
     inputs.drivePosition = driveTalon.getPosition().getValue();
     inputs.driveVelocity = driveTalon.getVelocity().getValue();
     inputs.driveAppliedVolts = driveTalon.getMotorVoltage().getValue();
@@ -245,11 +272,10 @@ public class DriveIOCTRE extends SwerveDrivetrain implements DriveIO {
     inputs.driveSupplyCurrent = driveTalon.getSupplyCurrent().getValue();
 
     // Update turn inputs
-    inputs.turnConnected = turnTalon.isConnected();
+    inputs.turnConnected = turnTalon.getConnectedMotor().hasUpdated();
     inputs.turnEncoderConnected = cancoder.isConnected();
-    inputs.turnAbsolutePosition =
-        Rotation2d.fromRotations(cancoder.getAbsolutePosition().getValueAsDouble());
-    inputs.turnPosition = Rotation2d.fromRotations(turnTalon.getPosition().getValueAsDouble());
+    inputs.turnAbsolutePosition = cancoder.getAbsolutePosition().getValue();
+    inputs.turnPosition = turnTalon.getPosition().getValue();
     inputs.turnVelocity = turnTalon.getVelocity().getValue();
     inputs.turnAppliedVolts = turnTalon.getMotorVoltage().getValue();
     inputs.turnStatorCurrent = turnTalon.getStatorCurrent().getValue();

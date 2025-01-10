@@ -88,7 +88,8 @@ public class ProfiledFieldCentricFacingAngle implements SwerveRequest {
     profile = new TrapezoidProfile(constraints);
   }
 
-  public StatusCode apply(SwerveControlParameters parameters, SwerveModule... modulesToApply) {
+  public StatusCode apply(
+      SwerveControlParameters parameters, SwerveModule<?, ?, ?>... modulesToApply) {
     goal.position = TargetDirection.getRadians();
 
     {
