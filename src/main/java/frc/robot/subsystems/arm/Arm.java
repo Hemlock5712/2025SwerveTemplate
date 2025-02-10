@@ -187,8 +187,7 @@ public class Arm extends SubsystemBase {
    * @return Command to set the mode
    */
   private Command setPositionCommand(ArmMode mode) {
-    return Commands.runOnce(() -> setArmMode(mode))
-        .withName("SetArmMode(" + mode.toString() + ")");
+    return Commands.runOnce(() -> setArmMode(mode)).withName("SetArmMode(" + mode.toString() + ")");
   }
 
   /** Factory methods for common position commands */

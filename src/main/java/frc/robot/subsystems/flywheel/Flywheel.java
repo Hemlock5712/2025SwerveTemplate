@@ -137,7 +137,7 @@ public class Flywheel extends SubsystemBase {
       currentCommand.schedule();
     }
   }
-  
+
   /**
    * Creates a command for a specific flywheel mode that runs the flywheel and checks the target
    * speed.
