@@ -18,7 +18,6 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Notifier;
 import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.Timer;
@@ -141,28 +140,25 @@ public class DriveIOCTRE extends TunerSwerveDrivetrain implements DriveIO {
     inputs.odometryIsValid = isOdometryValid();
 
     // Update queued data with thread safety
-    if (odometryLock.tryLock()) {
-      try {
-        // Process timestamps
-        inputs.timestamp = timestampQueue.stream().mapToDouble(Double::valueOf).toArray();
-        inputs.gyroYaw = gyroYawQueue.stream().toArray(Rotation2d[]::new);
+    odometryLock.lock();
+    try {
+      // Process timestamps
+      inputs.timestamp = timestampQueue.stream().mapToDouble(Double::valueOf).toArray();
+      inputs.gyroYaw = gyroYawQueue.stream().toArray(Rotation2d[]::new);
 
-        for (int i = 0; i < getModules().length; i++) {
-          inputs.drivePositions[i] =
-              drivePositionQueues.get(i).stream().mapToDouble(Double::valueOf).toArray();
-          inputs.steerPositions[i] = steerPositionQueues.get(i).stream().toArray(Rotation2d[]::new);
+      for (int i = 0; i < getModules().length; i++) {
+        inputs.drivePositions[i] =
+            drivePositionQueues.get(i).stream().mapToDouble(Double::valueOf).toArray();
+        inputs.steerPositions[i] = steerPositionQueues.get(i).stream().toArray(Rotation2d[]::new);
 
-          drivePositionQueues.get(i).clear();
-          steerPositionQueues.get(i).clear();
-        }
-
-        timestampQueue.clear();
-        gyroYawQueue.clear();
-      } finally {
-        odometryLock.unlock();
+        drivePositionQueues.get(i).clear();
+        steerPositionQueues.get(i).clear();
       }
-    } else {
-      DriverStation.reportWarning("Failed to acquire odometry lock in updateInputs", true);
+
+      timestampQueue.clear();
+      gyroYawQueue.clear();
+    } finally {
+      odometryLock.unlock();
     }
   }
 
@@ -173,27 +169,23 @@ public class DriveIOCTRE extends TunerSwerveDrivetrain implements DriveIO {
    * @param state Current state of the swerve drive
    */
   private void updateTelemetry(SwerveDriveState state) {
-    if (odometryLock.tryLock()) {
-      try {
-        // Update module positions
-        SwerveModulePosition[] modules = state.ModulePositions;
-        for (int i = 0; i < modules.length; i++) {
-          drivePositionQueues.get(i).offer(modules[i].distanceMeters);
-          steerPositionQueues.get(i).offer(modules[i].angle);
-        }
-
-        // Update gyro and timestamp data
-        gyroYawQueue.offer(state.RawHeading);
-
-        double currentTime = Timer.getFPGATimestamp();
-        double ctreTimeStamp =
-            currentTime - (Utils.fpgaToCurrentTime(currentTime) - state.Timestamp);
-        timestampQueue.offer(ctreTimeStamp);
-      } finally {
-        odometryLock.unlock();
+    odometryLock.lock();
+    try {
+      // Update module positions
+      SwerveModulePosition[] modules = state.ModulePositions;
+      for (int i = 0; i < modules.length; i++) {
+        drivePositionQueues.get(i).offer(modules[i].distanceMeters);
+        steerPositionQueues.get(i).offer(modules[i].angle);
       }
-    } else {
-      DriverStation.reportWarning("Failed to acquire odometry lock in updateTelemetry", true);
+
+      // Update gyro and timestamp data
+      gyroYawQueue.offer(state.RawHeading);
+
+      double currentTime = Timer.getFPGATimestamp();
+      double ctreTimeStamp = currentTime - (Utils.fpgaToCurrentTime(currentTime) - state.Timestamp);
+      timestampQueue.offer(ctreTimeStamp);
+    } finally {
+      odometryLock.unlock();
     }
   }
 
