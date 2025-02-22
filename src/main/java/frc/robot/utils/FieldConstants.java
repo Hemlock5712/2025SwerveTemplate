@@ -62,6 +62,7 @@ public class FieldConstants {
   }
 
   public static class Reef {
+    public static final Distance faceLength = Inches.of(36.792600);
     public static final Translation2d center =
         new Translation2d(Inches.of(176.746), Inches.of(158.501));
     public static final Distance faceToZoneLine =
@@ -117,7 +118,7 @@ public class FieldConstants {
           fillLeft.put(
               level,
               new Pose3d(
-                  calculateTransform(poseDirection, adjustX, adjustY, level.height),
+                  calculateTransform(poseDirection, adjustX, adjustY.unaryMinus(), level.height),
                   new Rotation3d(
                       Degrees.of(0), level.pitch, poseDirection.getRotation().getMeasure())));
         }
