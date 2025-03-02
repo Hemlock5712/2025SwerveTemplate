@@ -203,9 +203,7 @@ public class RobotContainer {
             drivetrain.applyRequest(
                 () ->
                     setpointGen
-                        .withVelocityX(
-                            MaxSpeed.times(
-                                -joystick.getLeftY())) // Drive forward with negative Y (forward)
+                        .withVelocityX(MaxSpeed.times(-joystick.getLeftY()))
                         .withVelocityY(MaxSpeed.times(-joystick.getLeftX()))
                         .withRotationalRate(Constants.MaxAngularRate.times(-joystick.getRightX()))
                         .withOperatorForwardDirection(drivetrain.getOperatorForwardDirection())));
