@@ -196,8 +196,6 @@ public class RobotContainer {
                 drivetrain.getChassisSpeeds(),
                 drivetrain.getModuleStates(),
                 drivetrain::getRotation)
-            .withDeadband(MaxSpeed.times(0.1))
-            .withRotationalDeadband(Constants.MaxAngularRate.times(0.1))
             .withDriveRequestType(DriveRequestType.OpenLoopVoltage);
     joystick
         .x()
