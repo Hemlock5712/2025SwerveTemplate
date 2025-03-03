@@ -17,9 +17,9 @@ import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.units.measure.Distance;
-import edu.wpi.first.wpilibj.DriverStation;
 import frc.robot.LimelightHelpers.PoseEstimate;
 import frc.robot.LimelightHelpers.PoseObservation;
+import frc.robot.Robot;
 import frc.robot.utils.FieldConstants;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,8 +30,6 @@ import java.util.List;
  * vision systems.
  */
 public class VisionUtil {
-  // Configuration constants
-  private static volatile boolean BEFORE_MATCH = true; // Controls MT1-only usage before match
   public static final Distance FIELD_MARGIN =
       Meters.of(0.5); // Meters beyond field boundaries to accept measurements
   public static final Distance Z_MARGIN =
@@ -284,7 +282,7 @@ public class VisionUtil {
    * @return True if the measurement is invalid due to timing constraints
    */
   private static boolean invalidMT2Time(PoseEstimate mt) {
-    return mt.isMegaTag2() && beforeMatch();
+    return mt.isMegaTag2() && Robot.BEFORE_MATCH;
   }
 
   /**
@@ -294,7 +292,7 @@ public class VisionUtil {
    * @return True if the rotation velocity exceeds the maximum allowed speed
    */
   private static boolean invalidRotationVelocity(PoseEstimate mt) {
-    return mt.yawVelocity().abs(RadiansPerSecond) > MT2_SPIN_MAX.in(RadiansPerSecond);
+    return Math.abs(mt.yawVelocity()) > MT2_SPIN_MAX.in(RadiansPerSecond);
   }
 
   /**
@@ -330,18 +328,5 @@ public class VisionUtil {
    */
   private static boolean invalidTagArea(PoseEstimate mt) {
     return mt.avgTagArea() < MIN_TAG_AREA;
-  }
-
-  /**
-   * Checks if the robot is in the pre-match phase where only MT1 should be used. Updates the
-   * BEFORE_MATCH flag when the robot becomes enabled.
-   *
-   * @return True if the robot is in pre-match phase
-   */
-  public static boolean beforeMatch() {
-    if (DriverStation.isEnabled()) {
-      BEFORE_MATCH = false;
-    }
-    return BEFORE_MATCH;
   }
 }
