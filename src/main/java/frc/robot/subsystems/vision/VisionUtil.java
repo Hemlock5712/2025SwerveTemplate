@@ -8,7 +8,6 @@ package frc.robot.subsystems.vision;
 
 import static edu.wpi.first.units.Units.DegreesPerSecond;
 import static edu.wpi.first.units.Units.Meters;
-import static edu.wpi.first.units.Units.RadiansPerSecond;
 
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.Vector;
@@ -292,7 +291,7 @@ public class VisionUtil {
    * @return True if the rotation velocity exceeds the maximum allowed speed
    */
   private static boolean invalidRotationVelocity(PoseEstimate mt) {
-    return Math.abs(mt.yawVelocity()) > MT2_SPIN_MAX.in(RadiansPerSecond);
+    return Math.abs(mt.yawVelocity()) > MT2_SPIN_MAX.in(DegreesPerSecond);
   }
 
   /**
