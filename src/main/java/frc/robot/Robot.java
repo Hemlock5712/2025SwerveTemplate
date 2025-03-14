@@ -92,7 +92,11 @@ public class Robot extends LoggedRobot {
   public void autonomousPeriodic() {}
 
   @Override
-  public void autonomousExit() {}
+  public void autonomousExit() {
+    if (m_autonomousCommand != null) {
+      m_autonomousCommand.cancel();
+    } // Somehow this makes it so that when A-Stop is hit it doesnt run during teleop :shrug:
+  }
 
   @Override
   public void teleopInit() {
