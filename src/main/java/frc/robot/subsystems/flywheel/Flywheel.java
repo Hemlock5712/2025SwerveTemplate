@@ -13,9 +13,7 @@ import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.SelectCommand;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import java.util.Map;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
@@ -59,20 +57,6 @@ public class Flywheel extends SubsystemBase {
   }
 
   /**
-   * Runs the flywheel in closed-loop velocity mode at the specified speed.
-   *
-   * @param velocity The target angular velocity
-   */
-  private void setVelocity(AngularVelocity velocity) {
-    io.setVelocity(velocity);
-  }
-
-  /** Stops the flywheel motors. */
-  private void stop() {
-    io.stop();
-  }
-
-  /**
    * Returns the current velocity of the flywheel.
    *
    * @return The current angular velocity
@@ -111,20 +95,6 @@ public class Flywheel extends SubsystemBase {
     return currentMode;
   }
 
-  // Command that runs the appropriate routine based on the current mode
-  private final Command currentCommand =
-      new SelectCommand<>(
-          Map.of(
-              FlywheelMode.STOP,
-              Commands.runOnce(this::stop).withName("Stop Flywheel"),
-              FlywheelMode.L1,
-              createVelocityCommand(FlywheelMode.L1),
-              FlywheelMode.L2,
-              createVelocityCommand(FlywheelMode.L2),
-              FlywheelMode.L3,
-              createVelocityCommand(FlywheelMode.L3)),
-          this::getMode);
-
   /**
    * Sets a new flywheel mode and schedules the corresponding command.
    *
@@ -132,21 +102,15 @@ public class Flywheel extends SubsystemBase {
    */
   private void setFlywheelMode(FlywheelMode mode) {
     if (currentMode != mode) {
-      currentCommand.cancel();
       currentMode = mode;
-      currentCommand.schedule();
+      io.setVelocity(mode.targetSpeed);
     }
   }
 
-  /**
-   * Creates a command for a specific flywheel mode that runs the flywheel and checks the target
-   * speed.
-   *
-   * @param mode The flywheel mode to create a command for
-   * @return A command that implements the flywheel movement
-   */
-  private Command createVelocityCommand(FlywheelMode mode) {
-    return Commands.runOnce(() -> setVelocity(mode.targetSpeed)).withName("Run " + mode.toString());
+  // ** Stops the flywheel and sets the mode to STOP. */
+  private void stopFlywheel() {
+    currentMode = FlywheelMode.STOP;
+    io.stop();
   }
 
   /**
@@ -177,8 +141,8 @@ public class Flywheel extends SubsystemBase {
    * @return Command to set the mode
    */
   private Command setVelocityCommand(FlywheelMode mode) {
-    return Commands.runOnce(() -> setFlywheelMode(mode))
-        .withName("SetFlywheelMode(" + mode.toString() + ")");
+    return Commands.runOnce(() -> setFlywheelMode(mode), this)
+        .withName("Move to " + mode.toString());
   }
 
   /** Factory methods for common mode commands */
@@ -207,7 +171,7 @@ public class Flywheel extends SubsystemBase {
   /**
    * @return Command to stop the flywheel
    */
-  public final Command stopCommand() {
-    return setVelocityCommand(FlywheelMode.STOP);
+  public final Command stop() {
+    return Commands.runOnce(this::stopFlywheel, this).withName("Stop Flywheel");
   }
 }

@@ -13,9 +13,7 @@ import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.SelectCommand;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import java.util.Map;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
@@ -30,7 +28,7 @@ public class Arm extends SubsystemBase {
   private final ArmIOInputsAutoLogged inputs;
 
   // Current arm position mode
-  private ArmMode currentMode = ArmMode.INTAKE;
+  private ArmMode currentMode = ArmMode.STOP;
 
   // Alerts for motor connection status
   private final Alert leaderMotorAlert =
@@ -59,20 +57,6 @@ public class Arm extends SubsystemBase {
     leaderMotorAlert.set(!inputs.leaderConnected);
     followerMotorAlert.set(!inputs.followerConnected);
     encoderAlert.set(!inputs.encoderConnected);
-  }
-
-  /**
-   * Runs the arm in closed-loop position mode to the specified angle.
-   *
-   * @param position The target angle position
-   */
-  private void setPosition(Angle position) {
-    io.setPosition(position);
-  }
-
-  /** Stops the arm motors. */
-  private void stop() {
-    io.stop();
   }
 
   /**
@@ -123,40 +107,15 @@ public class Arm extends SubsystemBase {
    */
   private void setArmMode(ArmMode mode) {
     if (currentMode != mode) {
-      currentCommand.cancel();
       currentMode = mode;
-      currentCommand.schedule();
+      io.setPosition(mode.targetAngle);
     }
   }
 
-  // Command that runs the appropriate routine based on the current position
-  private final Command currentCommand =
-      new SelectCommand<>(
-          Map.of(
-              ArmMode.STOP,
-              Commands.runOnce(this::stop).withName("Stop Arm"),
-              ArmMode.INTAKE,
-              createPositionCommand(ArmMode.INTAKE),
-              ArmMode.L1,
-              createPositionCommand(ArmMode.L1),
-              ArmMode.L2,
-              createPositionCommand(ArmMode.L2),
-              ArmMode.L3,
-              createPositionCommand(ArmMode.L3),
-              ArmMode.L4,
-              createPositionCommand(ArmMode.L4)),
-          this::getMode);
-
-  /**
-   * Creates a command for a specific arm position that moves the arm and checks the target
-   * position.
-   *
-   * @param mode The arm position to create a command for
-   * @return A command that implements the arm movement
-   */
-  private Command createPositionCommand(ArmMode mode) {
-    return Commands.runOnce(() -> setPosition(mode.targetAngle))
-        .withName("Move to " + mode.toString());
+  /** Stops the arm and sets the mode to STOP. */
+  private void stopArm() {
+    currentMode = ArmMode.STOP;
+    io.stop();
   }
 
   /**
@@ -187,7 +146,7 @@ public class Arm extends SubsystemBase {
    * @return Command to set the mode
    */
   private Command setPositionCommand(ArmMode mode) {
-    return Commands.runOnce(() -> setArmMode(mode)).withName("SetArmMode(" + mode.toString() + ")");
+    return Commands.runOnce(() -> setArmMode(mode), this).withName("Move to " + mode.toString());
   }
 
   /** Factory methods for common position commands */
@@ -230,7 +189,7 @@ public class Arm extends SubsystemBase {
   /**
    * @return Command to stop the arm
    */
-  public final Command stopCommand() {
-    return setPositionCommand(ArmMode.STOP);
+  public final Command stop() {
+    return Commands.runOnce(this::stopArm, this).withName("Stop Arm");
   }
 }

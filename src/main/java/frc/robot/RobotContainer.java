@@ -7,9 +7,9 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation3d;
-import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.units.measure.LinearVelocity;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 import frc.robot.commands.DriveCommands;
@@ -21,7 +21,6 @@ import frc.robot.subsystems.arm.ArmIOSIM;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveIO;
 import frc.robot.subsystems.drive.DriveIOCTRE;
-import frc.robot.subsystems.drive.requests.ProfiledFieldCentricFacingAngle;
 import frc.robot.subsystems.drive.requests.SwerveSetpointGen;
 import frc.robot.subsystems.elevator.Elevator;
 import frc.robot.subsystems.elevator.ElevatorIO;
@@ -208,35 +207,6 @@ public class RobotContainer {
                         .withRotationalRate(Constants.MaxAngularRate.times(-joystick.getRightX()))
                         .withOperatorForwardDirection(drivetrain.getOperatorForwardDirection())));
 
-    // Custom Swerve Request that use ProfiledFieldCentricFacingAngle. Allows you to face specific
-    // direction while driving
-    ProfiledFieldCentricFacingAngle driveFacingAngle =
-        new ProfiledFieldCentricFacingAngle(
-                new TrapezoidProfile.Constraints(
-                    Constants.MaxAngularRate.baseUnitMagnitude(),
-                    Constants.MaxAngularRate.div(0.25).baseUnitMagnitude()))
-            .withDeadband(MaxSpeed.times(0.1))
-            .withDriveRequestType(DriveRequestType.OpenLoopVoltage);
-    // Set PID for ProfiledFieldCentricFacingAngle
-    driveFacingAngle.HeadingController.setPID(7, 0, 0);
-    joystick
-        .y()
-        .whileTrue(
-            drivetrain
-                .runOnce(() -> driveFacingAngle.resetProfile(drivetrain.getRotation()))
-                .andThen(
-                    drivetrain.applyRequest(
-                        () ->
-                            driveFacingAngle
-                                .withVelocityX(
-                                    MaxSpeed.times(
-                                        -joystick
-                                            .getLeftY())) // Drive forward with negative Y (forward)
-                                .withVelocityY(MaxSpeed.times(-joystick.getLeftX()))
-                                .withTargetDirection(
-                                    new Rotation2d(
-                                        -joystick.getRightY(), -joystick.getRightX())))));
-
     // Run SysId routines when holding back/start and X/Y.
     // Note that each routine should be run exactly once in a single log.
     joystick.back().and(joystick.y()).whileTrue(drivetrain.sysIdDynamic(Direction.kForward));
@@ -246,8 +216,9 @@ public class RobotContainer {
 
     // reset the field-centric heading on left bumper press
     // joystick.leftBumper().onTrue(drivetrain.runOnce(drivetrain::seedFieldCentric));
-    joystick.a().onTrue(flywheel.L1()).onTrue(arm.L1()).onTrue(elevator.L1());
-    joystick.b().onTrue(flywheel.L2()).onTrue(arm.L2()).onTrue(elevator.L2());
+    joystick.a().onTrue(Commands.parallel(flywheel.L1(), arm.L1(), elevator.L1()));
+    joystick.b().onTrue(Commands.parallel(flywheel.L2(), arm.L2(), elevator.L2()));
+    joystick.x().onTrue(Commands.parallel(flywheel.stop(), arm.stop(), elevator.stop()));
   }
 
   public Command getAutonomousCommand() {

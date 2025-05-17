@@ -13,9 +13,7 @@ import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.SelectCommand;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import java.util.Map;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
@@ -60,20 +58,6 @@ public class Elevator extends SubsystemBase {
     leaderMotorAlert.set(!inputs.leaderConnected);
     followerMotorAlert.set(!inputs.followerConnected);
     encoderAlert.set(!inputs.encoderConnected);
-  }
-
-  /**
-   * Runs the elevator in closed-loop distance mode to the specified angle.
-   *
-   * @param distance The target angle distance
-   */
-  private void setDistance(Distance distance) {
-    io.setDistance(distance);
-  }
-
-  /** Stops the elevator motors. */
-  private void stop() {
-    io.stop();
   }
 
   /**
@@ -130,40 +114,15 @@ public class Elevator extends SubsystemBase {
    */
   private void setElevatorMode(ElevatorMode mode) {
     if (currentMode != mode) {
-      currentCommand.cancel();
       currentMode = mode;
-      currentCommand.schedule();
+      io.setDistance(mode.targetDistance);
     }
   }
 
-  // Command that runs the appropriate routine based on the current distance
-  private final Command currentCommand =
-      new SelectCommand<>(
-          Map.of(
-              ElevatorMode.STOP,
-              Commands.runOnce(this::stop).withName("Stop Elevator"),
-              ElevatorMode.INTAKE,
-              createPositionCommand(ElevatorMode.INTAKE),
-              ElevatorMode.L1,
-              createPositionCommand(ElevatorMode.L1),
-              ElevatorMode.L2,
-              createPositionCommand(ElevatorMode.L2),
-              ElevatorMode.L3,
-              createPositionCommand(ElevatorMode.L3),
-              ElevatorMode.L4,
-              createPositionCommand(ElevatorMode.L4)),
-          this::getMode);
-
-  /**
-   * Creates a command for a specific elevator distance that moves the elevator and checks the
-   * target distance.
-   *
-   * @param mode The elevator distance to create a command for
-   * @return A command that implements the elevator movement
-   */
-  private Command createPositionCommand(ElevatorMode mode) {
-    return Commands.runOnce(() -> setDistance(mode.targetDistance))
-        .withName("Move to " + mode.toString());
+  /** Stops the elevator and sets the mode to STOP. */
+  private void stopElevator() {
+    currentMode = ElevatorMode.STOP;
+    io.stop();
   }
 
   /**
@@ -194,8 +153,8 @@ public class Elevator extends SubsystemBase {
    * @return Command to set the mode
    */
   private Command setPositionCommand(ElevatorMode mode) {
-    return Commands.runOnce(() -> setElevatorMode(mode))
-        .withName("SetElevatorMode(" + mode.toString() + ")");
+    return Commands.runOnce(() -> setElevatorMode(mode), this)
+        .withName("Move to " + mode.toString());
   }
 
   /**
@@ -245,7 +204,7 @@ public class Elevator extends SubsystemBase {
   /**
    * @return Command to stop the elevator
    */
-  public final Command stopCommand() {
-    return setPositionCommand(ElevatorMode.STOP);
+  public final Command stop() {
+    return Commands.runOnce(this::stopElevator, this).withName("Stop Elevator");
   }
 }
